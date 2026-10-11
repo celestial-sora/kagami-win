@@ -55,8 +55,8 @@ inline void sourceIcon(Graphics& g,float x,float top,float size,bool cast){
 }
 inline void optionIcon(Graphics& g,float x,float top,int kind){
     Pen pen(muted,2.1f);pen.SetLineJoin(LineJoinRound);
-    if(kind==0){pen.SetDashStyle(DashStyleDash);g.DrawRectangle(&pen,x,top,16,16);}
-    else if(kind==1){g.DrawRectangle(&pen,x,top,16,16);g.DrawLine(&pen,x+5.33f,top,x+5.33f,top+16);g.DrawLine(&pen,x+10.67f,top,x+10.67f,top+16);g.DrawLine(&pen,x,top+5.33f,x+16,top+5.33f);g.DrawLine(&pen,x,top+10.67f,x+16,top+10.67f);}
+    if(kind==0){pen.SetDashStyle(DashStyleDash);g.DrawRectangle(&pen,x,top,16.f,16.f);}
+    else if(kind==1){g.DrawRectangle(&pen,x,top,16.f,16.f);g.DrawLine(&pen,x+5.33f,top,x+5.33f,top+16);g.DrawLine(&pen,x+10.67f,top,x+10.67f,top+16);g.DrawLine(&pen,x,top+5.33f,x+16,top+5.33f);g.DrawLine(&pen,x,top+10.67f,x+16,top+10.67f);}
     else {g.DrawLine(&pen,x,top+8,x+17,top+8);g.DrawLine(&pen,x,top+8,x+5,top+3);g.DrawLine(&pen,x,top+8,x+5,top+13);g.DrawLine(&pen,x+17,top+8,x+12,top+3);g.DrawLine(&pen,x+17,top+8,x+12,top+13);}
 }
 inline void place(int i,float x,float top,float width,float height){MoveWindow(buttons[i],int(x*scale),int(top*scale),int(width*scale),int(height*scale),TRUE);}
@@ -134,3 +134,4 @@ inline void drawButton(DRAWITEMSTRUCT* item){
 }
 inline void refresh(HWND hwnd){layout(hwnd);InvalidateRect(hwnd,nullptr,FALSE);}
 }
+
