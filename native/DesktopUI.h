@@ -6,9 +6,9 @@
 // Coordinates are logical pixels. Windows supplies the native title bar and keyboard focus.
 namespace ui {
 using namespace Gdiplus;
-inline HWND buttons[11]{};
+inline HWND buttons[12]{};
 inline float scale = 1;
-inline bool running = false, android = false, airplay = false, enabled = false, guide = false, safe = false, output = false;
+inline bool running = false, android = false, airplay = false, smartview = false, enabled = false, guide = false, safe = false, output = false;
 inline std::wstring message = L"Stopped. No capture has started.";
 inline std::vector<BYTE> preview;
 inline std::vector<BYTE> source;
@@ -52,6 +52,7 @@ inline void layout(HWND hwnd) {
     place(8,30,266,328,28);
     place(9,30,684,328,36);
     place(10,width-552,28,132,40);
+    place(11,208,225,142,28);EnableWindow(buttons[11],enabled&&!running);
     place(7,406,r.bottom/scale-36,width-424,28);
     EnableWindow(buttons[1],enabled && !running); EnableWindow(buttons[0],!running);EnableWindow(buttons[8],enabled && !running); EnableWindow(buttons[2],running);EnableWindow(buttons[10],enabled&&!running);
 }
@@ -72,9 +73,9 @@ inline void paint(HWND hwnd, HDC dc) {
     rounded(g,RectF(200,163,158,95),Color(255,47,44,59));
     monitor(g,43,176,25); monitor(g,213,176,25);
     text(g,L"AirPlay",43,202,135,24,18,true); text(g,L"Smart View",213,202,135,24,18,true);
-    text(g,L"Apple · Experimental",43,231,140,20,13,false,muted); text(g,L"Not available yet",213,231,140,20,13,false,muted);
+    text(g,L"Apple · Experimental",43,231,140,20,13,false,muted);
     rounded(g,RectF(18,316,358,91),Color(255,51,48,62),true);
-    text(g,airplay?(source.empty()?L"●  Waiting for AirPlay":L"●  AirPlay receiving"):android?L"●  Android receiver":running?L"●  Test pattern running":L"●  Not connected",30,327,328,25,17,true,Color(255,235,157,247));
+    text(g,smartview?(source.empty()?L"●  Waiting for Smart View":L"●  Smart View receiving"):airplay?(source.empty()?L"●  Waiting for AirPlay":L"●  AirPlay receiving"):android?L"●  Android receiver":running?L"●  Test pattern running":L"●  Not connected",30,327,328,25,17,true,Color(255,235,157,247));
     text(g,message.c_str(),30,358,328,43,13,false,muted);
     rounded(g,RectF(18,419,358,143),Color(255,33,32,43),true);
     text(g,L"Camera Settings",30,433,328,28,18,true);

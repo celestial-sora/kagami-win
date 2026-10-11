@@ -43,7 +43,7 @@ foreach ($package in $packages) {
     Expand-Archive -LiteralPath $archive -DestinationPath ".local/deps/$($package.Name)" -Force
 }
 Invoke-Checked (Join-Path $taskRoot '.local/deps/cppwinrt/bin/cppwinrt.exe') @('-input','sdk','-output',"$taskRoot/.local/deps/cppwinrt/include")
-$common = @('/nologo','/utf-8','/O2','/std:c++17','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/D_WIN32_WINNT=0x0A00',"/I$taskRoot/native", "/I$taskRoot/.local/deps/cppwinrt/include", "/I$taskRoot/.local/deps/wil/include", "/Fo$taskRoot\build\")
+$common = @('/nologo','/utf-8','/O2','/std:c++20','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/D_WIN32_WINNT=0x0A00',"/I$taskRoot/native", "/I$taskRoot/.local/deps/cppwinrt/include", "/I$taskRoot/.local/deps/wil/include", "/Fo$taskRoot\build\")
 Write-Host '[2/5] Build Kagami Media Foundation camera'
 $sources = (Get-ChildItem -LiteralPath native/source -Filter '*.cpp').FullName
 Invoke-Checked cl ($common + @('/LD') + $sources + @('/link','/DEF:native/source/KagamiCamera.def','/OUT:dist/KagamiCamera.dll','advapi32.lib','shlwapi.lib','propsys.lib'))
@@ -64,6 +64,9 @@ Write-Host '[5/5] Package development installer'
 Copy-Item LICENSE dist/LICENSE.txt
 Copy-Item native/source/LICENSE.microsoft dist/LICENSE.microsoft.txt
 if ($Installer) {
+    Invoke-Checked cl ($common + @('native/SmartViewHost.cpp','/Fe:dist/KagamiSmartView.exe','/link','/SUBSYSTEM:WINDOWS','windowsapp.lib','d3d11.lib','advapi32.lib','user32.lib','ole32.lib'))
+    $packageVersion = if ($env:GITHUB_RUN_NUMBER) { "0.1.$($env:GITHUB_RUN_NUMBER).0" } else { '0.1.0.0' }
+    & ./tools/Build-SmartViewPackage.ps1 -Version $packageVersion
     $iscc = @((Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'), (Join-Path $env:ProgramFiles 'Inno Setup 6/ISCC.exe'), (Join-Path $env:LOCALAPPDATA 'Programs/Inno Setup 6/ISCC.exe')) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if (!$iscc) { throw 'Install JRSoftware.InnoSetup using winget, or use -InstallBuildDependencies -Installer.' }
     Invoke-Checked $iscc @('packaging/kagami.iss')

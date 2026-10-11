@@ -4,6 +4,7 @@
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <winrt/Windows.Graphics.Capture.h>
+#include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
 #include "Framing.h"
 #pragma comment(lib,"d3d11.lib")
@@ -49,7 +50,7 @@ public:
         auto actual=frame.ContentSize();
         if(actual.Width<=0||actual.Height<=0||actual.Width>8192||actual.Height>8192){frame.Close();return {};}
         if(actual.Width!=size.Width||actual.Height!=size.Height){frame.Close();size=actual;staging.Reset();pool.Recreate(runtimeDevice,winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,1,size);return {};}
-        auto access=frame.Surface().as<IDirect3DDxgiInterfaceAccess>();
+        auto access=frame.Surface().as<Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;winrt::check_hresult(access->GetInterface(IID_PPV_ARGS(&texture)));
         D3D11_TEXTURE2D_DESC desc{};texture->GetDesc(&desc);
         if(desc.Width<unsigned(size.Width)||desc.Height<unsigned(size.Height)){frame.Close();return {};}

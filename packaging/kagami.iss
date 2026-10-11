@@ -26,6 +26,7 @@ Source: "..\dist\KagamiCamera.dll"; DestDir: "{app}"; Flags: ignoreversion resta
 Source: "..\dist\LICENSE*.txt"; DestDir: "{app}"
 Source: "..\dist\airplay\*"; DestDir: "{app}\airplay"; Flags: recursesubdirs createallsubdirs
 Source: "Install-OptionalDependencies.ps1"; DestDir: "{app}"
+Source: "..\dist\smartview\*"; DestDir: "{app}\smartview"
 
 [Registry]
 Root: HKLM; Subkey: "Software\Classes\CLSID\{{542A79E7-54AC-48F9-B948-4620292BCC85}"; ValueType: string; ValueData: "Kagami Media Source"; Flags: uninsdeletekey
@@ -34,11 +35,14 @@ Root: HKLM; Subkey: "Software\Classes\CLSID\{{542A79E7-54AC-48F9-B948-4620292BCC
 
 [Tasks]
 Name: "obs"; Description: "Install OBS Studio via winget for camera testing (optional)"; Flags: unchecked
+Name: "smartview"; Description: "Install Smart View companion and trust this build's development signing certificate (optional)"; Flags: unchecked
 
 [Icons]
 Name: "{group}\Kagami"; Filename: "{app}\Kagami.exe"
 
 [Run]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\smartview\Install-SmartView.ps1"" -TrustDevelopmentCertificate"; Tasks: smartview; Flags: runhidden waituntilterminated; StatusMsg: "Trusting the selected development signing certificate..."
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\smartview\Install-SmartView.ps1"""; Tasks: smartview; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing Smart View for the desktop user..."
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-OptionalDependencies.ps1"""; Tasks: obs; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing optional OBS Studio through winget..."
 Filename: "{app}\Kagami.exe"; Parameters: "--launch-desktop"; Description: "Open Kagami (capture stays stopped)"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
