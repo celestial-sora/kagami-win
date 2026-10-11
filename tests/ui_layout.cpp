@@ -11,7 +11,10 @@ int wmain() {
     }
     {
         HWND window=CreateWindowW(L"STATIC",L"Kagami layout check",WS_POPUP,0,0,1400,900,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);assert(window);
-        const wchar_t* labels[]{L"Enable camera",L"Test pattern",L"Stop",L"Remove camera",L"Framing controls",L"Framing guide: Off",L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
+        // Render the normal post-launch state: Kagami turns its camera on but
+        // keeps the receiver stopped until the user starts it explicitly.
+        ui::enabled=true;
+        const wchar_t* labels[]{L"Camera On",L"Test pattern",L"Stop",L"Remove camera",L"Framing controls",L"Framing guide: Off",L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
         for(int i=0;i<14;++i)ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|BS_OWNERDRAW,0,0,0,0,window,reinterpret_cast<HMENU>(INT_PTR(i==13?115:i>=9?101+i:100+i)),GetModuleHandleW(nullptr),nullptr);
         ui::buttons[14]=CreateWindowW(L"BUTTON",L"Check",WS_CHILD|BS_OWNERDRAW,0,0,0,0,window,reinterpret_cast<HMENU>(117),GetModuleHandleW(nullptr),nullptr);
         for(auto size:{SIZE{1024,768},SIZE{1920,1080},SIZE{1400,900}}){
@@ -34,3 +37,4 @@ int wmain() {
     }
     Gdiplus::GdiplusShutdown(token);
 }
+
