@@ -8,7 +8,7 @@ The main window contains transport selection, Start/Stop, connection status, sou
 
 Use the setup EXE from a successful [feature CI run](https://github.com/celestial-sora/kagami-win/actions/workflows/checks.yml). Artifacts are development builds, not stable releases. `winget install celestial-sora.Kagami` is the intended distribution command but **is not available in the public catalog yet**; see [WinGet distribution](docs/winget.md).
 
-Setup elevates to install/register the fixed native DLL under Program Files. Desktop/media run as the normal user. Optional OBS, Android dependency and Smart View tasks are unchecked. Installation never enables the camera or starts mirroring. Local preferences and framing presets are retained.
+Setup elevates to install/register the fixed native DLL under Program Files and rejects a custom `/DIR` override. Desktop/media run as the normal user. Optional OBS, Android dependency and Smart View tasks are unchecked. Installation never enables the camera or starts mirroring. Local preferences and framing presets are retained.
 
 1. Open Kagami normally and click **Enable camera**.
 2. Select a transport and start it explicitly. Connect using the instructions below.

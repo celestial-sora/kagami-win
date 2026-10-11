@@ -5,6 +5,8 @@ AppVersion=0.1.0
 AppPublisher=celestial-sora
 AppPublisherURL=https://github.com/celestial-sora/kagami-win
 DefaultDirName={autopf}\Kagami
+DisableDirPage=yes
+UsePreviousAppDir=no
 DefaultGroupName=Kagami
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -52,3 +54,11 @@ Filename: "{app}\Kagami.exe"; Parameters: "--launch-desktop"; Description: "Open
 
 [UninstallRun]
 Filename: "{app}\Kagami.exe"; Parameters: "--remove-camera"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveCurrentUserKagamiCamera"
+
+[Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if CompareText(ExpandConstant('{app}'), ExpandConstant('{autopf}\Kagami')) <> 0 then
+    Result := 'Kagami must be installed in its fixed protected Program Files location. Remove any /DIR override and run Setup again.';
+end;

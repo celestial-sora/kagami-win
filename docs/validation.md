@@ -6,9 +6,9 @@ This is a development preview. Source implementation, compilation, synthetic fra
 
 The earlier native UI foundation at commit `94712136d57109930f776481bcdd4c90cdb2b378` passed [feature CI 38130880924](https://github.com/celestial-sora/kagami-win/actions/runs/38130880924), including native compilation, direct actual-DLL tests, local frame IPC and development EXE packing. Its rendered UI artifact was visually inspected. That run predates the complete receiver and dynamic-format changes and does not validate them.
 
-The current expanded development branch must pass its own complete CI before integration. At this documentation update, that CI is still being evaluated; do not infer a passing result from the earlier run. Feature artifacts are development artifacts, and no stable release or public WinGet catalog availability is claimed.
+The expanded port at commit `4a56e8995d22c98465104d13c9ab20d29c0ed03c` passed [feature CI 38134657269](https://github.com/celestial-sora/kagami-win/actions/runs/38134657269), including portable AirPlay probes, native app/helper compilation, all automated checks below, development MSIX signing and EXE production. Subsequent changes still require their own successful CI before integration. Feature artifacts are development artifacts; no stable release or public WinGet catalog availability is claimed.
 
-[Expanded CI 38133750576](https://github.com/celestial-sora/kagami-win/actions/runs/38133750576) passed the portable AirPlay plugin probes but then failed native compilation in the output-format dialog. That compile issue has a local fix; the full expanded build, tests and packaging still require a successful subsequent run.
+[Expanded CI 38133750576](https://github.com/celestial-sora/kagami-win/actions/runs/38133750576) exposed an output-format dialog compilation issue. A later run exposed a Smart View Direct3D ABI pointer mismatch. Both were fixed before the successful expanded run above.
 
 ## Automated checks
 
