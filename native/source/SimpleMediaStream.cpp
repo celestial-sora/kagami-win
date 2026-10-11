@@ -34,6 +34,12 @@ namespace winrt::WindowsSample::implementation
         m_dwStreamId = dwStreamId;
         m_allocatorUsage = allocatorUsage;
 
+        kagami::OutputFormat output;
+        sourceAttrs->GetUINT32(KAGAMI_OUTPUT_WIDTH,&output.width);
+        sourceAttrs->GetUINT32(KAGAMI_OUTPUT_HEIGHT,&output.height);
+        sourceAttrs->GetUINT32(KAGAMI_OUTPUT_FPS,&output.fps);
+        if(!output.valid())output={};
+        m_sampleDuration=10000000/output.fps;
         const uint32_t NUM_MEDIATYPES = 2;
         wil::unique_cotaskmem_array_ptr<wil::com_ptr_nothrow<IMFMediaType>> mediaTypeList = wilEx::make_unique_cotaskmem_array<wil::com_ptr_nothrow<IMFMediaType>>(NUM_MEDIATYPES);
 
@@ -44,10 +50,10 @@ namespace winrt::WindowsSample::implementation
         spMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
         spMediaType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
         spMediaType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
-        MFSetAttributeSize(spMediaType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-        MFSetAttributeRatio(spMediaType.get(), MF_MT_FRAME_RATE, 30, 1);
+        MFSetAttributeSize(spMediaType.get(), MF_MT_FRAME_SIZE, output.width, output.height);
+        MFSetAttributeRatio(spMediaType.get(), MF_MT_FRAME_RATE, output.fps, 1);
         // frame size * pixle bit size * framerate
-        uint32_t bitrate = (uint32_t)(NUM_IMAGE_COLS * 1.5 * NUM_IMAGE_ROWS * 8* 30);
+        uint32_t bitrate = (uint32_t)(output.width * 1.5 * output.height * 8* output.fps);
         spMediaType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
         MFSetAttributeRatio(spMediaType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
         mediaTypeList[0] = spMediaType.detach();
@@ -57,10 +63,10 @@ namespace winrt::WindowsSample::implementation
         spMediaType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
         spMediaType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
         spMediaType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
-        MFSetAttributeSize(spMediaType.get(), MF_MT_FRAME_SIZE, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-        MFSetAttributeRatio(spMediaType.get(), MF_MT_FRAME_RATE, 30, 1);
+        MFSetAttributeSize(spMediaType.get(), MF_MT_FRAME_SIZE, output.width, output.height);
+        MFSetAttributeRatio(spMediaType.get(), MF_MT_FRAME_RATE, output.fps, 1);
         // frame size * pixle bit size * framerate
-        bitrate = (uint32_t)(NUM_IMAGE_COLS * NUM_IMAGE_ROWS * 4 * 8* 30);
+        bitrate = (uint32_t)(output.width * output.height * 4 * 8* output.fps);
         spMediaType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
         MFSetAttributeRatio(spMediaType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
         mediaTypeList[1] = spMediaType.detach();
@@ -207,7 +213,7 @@ namespace winrt::WindowsSample::implementation
 
         auto now = MFGetSystemTime();
         if (m_nextSampleTime > now) Sleep(static_cast<DWORD>((m_nextSampleTime - now + 9999) / 10000));
-        m_nextSampleTime = MFGetSystemTime() + 333333;
+        m_nextSampleTime = MFGetSystemTime() + m_sampleDuration;
         RETURN_IF_FAILED(m_spSampleAllocator->AllocateSample(&sample));
         RETURN_IF_FAILED(sample->GetBufferByIndex(0, &outputBuffer));
         RETURN_IF_FAILED(outputBuffer->QueryInterface(IID_PPV_ARGS(&buffer2D)));
@@ -224,7 +230,7 @@ namespace winrt::WindowsSample::implementation
         //RETURN_IF_FAILED(WriteSampleData(pbuf, bufferLength, pitch, NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
 
         RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
-        RETURN_IF_FAILED(sample->SetSampleDuration(333333));
+        RETURN_IF_FAILED(sample->SetSampleDuration(m_sampleDuration));
         if (pToken != nullptr)
         {
             RETURN_IF_FAILED(sample->SetUnknown(MFSampleExtension_Token, pToken));

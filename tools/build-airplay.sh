@@ -18,6 +18,7 @@ fi
 cmake -S "$source_dir" -B "$source_dir/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DNO_X11_DEPS=ON
 cmake --build "$source_dir/build" --parallel 2
 cp "$source_dir/build/uxplay.exe" "$root/dist/airplay/bin/kagami-uxplay.exe"
+cp /ucrt64/bin/gst-inspect-1.0.exe "$root/dist/airplay/bin/"
 # Include only the renderer/decoder/audio plugins used by this receiver.
 plugins=(coreelements playback app typefindfunctions videoconvertscale videoparsersbad libav autodetect d3d11 wasapi audioconvert audioresample volume)
 for plugin in "${plugins[@]}"; do
@@ -35,4 +36,13 @@ pacman -Q > "$root/dist/airplay/BUILD-PACKAGES.txt"
 # Ship the modified backend's corresponding source in every development artifact.
 tar --exclude=.git --exclude=build -czf "$root/dist/airplay/UxPlay-corresponding-source.tar.gz" -C "$source_dir" .
 "$root/dist/airplay/bin/kagami-uxplay.exe" -rc NUL -h > "$root/build/airplay-help.txt"
+# Probe the bundled runtime with system plugin discovery disabled. This validates
+# relocation and codec/sink availability, without listening or claiming phone support.
+export GST_PLUGIN_SYSTEM_PATH_1_0=
+export GST_PLUGIN_PATH_1_0="$(cygpath -w "$root/dist/airplay/lib/gstreamer-1.0")"
+export GST_PLUGIN_SCANNER_1_0="$(cygpath -w "$root/dist/airplay/libexec/gstreamer-1.0/gst-plugin-scanner.exe")"
+export GST_REGISTRY_1_0="$(cygpath -w "$root/build/gst-registry.bin")"
+for element in appsrc h264parse avdec_h264 decodebin videoconvert videoscale d3d11videosink wasapisink audioconvert audioresample volume; do
+    "$root/dist/airplay/bin/gst-inspect-1.0.exe" "$element" > "$root/build/airplay-element-$element.txt"
+done
 printf 'Pinned Windows AirPlay backend built; phone/audio acceptance still requires devices.\n'

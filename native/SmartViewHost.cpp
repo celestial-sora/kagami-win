@@ -16,18 +16,18 @@
 #include <sstream>
 #include "SmartViewProtocol.h"
 using namespace winrt;
-using namespace Windows::ApplicationModel::Core;
-using namespace Windows::ApplicationModel::Activation;
-using namespace Windows::UI::Core;
-using namespace Windows::Media::Miracast;
-using namespace Windows::Media::Playback;
+using namespace winrt::Windows::ApplicationModel::Core;
+using namespace winrt::Windows::ApplicationModel::Activation;
+using namespace winrt::Windows::UI::Core;
+using namespace winrt::Windows::Media::Miracast;
+using namespace winrt::Windows::Media::Playback;
 using Microsoft::WRL::ComPtr;
 struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView> {
     CoreWindow window{nullptr};CoreApplicationView view{nullptr};
     MiracastReceiverSession session{nullptr};MediaPlayer player{nullptr};
     ComPtr<ID3D11Device> device;ComPtr<ID3D11DeviceContext> context;
     ComPtr<ID3D11Texture2D> texture,staging;ComPtr<ID3D11RenderTargetView> target;
-    Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface surface{nullptr};
+    winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface surface{nullptr};
     std::atomic<bool> stopped{true};std::thread control,transport;HANDLE pipe=INVALID_HANDLE_VALUE;
     std::mutex lock;kagami::smart::Packet packet;std::vector<BYTE> latest;
     IFrameworkView CreateView(){return *this;}
@@ -43,7 +43,7 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
     void SetWindow(CoreWindow const& value) {
         window=value;
         value.Closed([weak=get_weak()](auto const&,auto const&){if(auto self=weak.get())self->finish();});
-        Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().Title(L"Kagami Smart View · close to stop");
+        winrt::Windows::UI::ViewManagement::ApplicationView::GetForCurrentView().Title(L"Kagami Smart View · close to stop");
     }
     void Load(hstring const&){}
     void Run(){window.Dispatcher().ProcessEvents(CoreProcessEventsOption::ProcessUntilQuit);}
@@ -108,13 +108,13 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
         }catch(hresult_error const& e){notify(kagami::smart::State::Failed,e.message().empty()?L"Smart View failed. Check Wireless Display and Windows permissions.":e.message().c_str(),e.code());}
         catch(...){notify(kagami::smart::State::Failed,L"Smart View receiver failed.",E_FAIL);}
     }
-    void play(Windows::Media::Core::MediaSource const& source) {
+    void play(winrt::Windows::Media::Core::MediaSource const& source) {
         check_hresult(D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,nullptr,0,D3D11_SDK_VERSION,&device,nullptr,&context));
         D3D11_TEXTURE2D_DESC desc{};desc.Width=kagami::width;desc.Height=kagami::height;desc.MipLevels=1;desc.ArraySize=1;desc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;desc.SampleDesc.Count=1;desc.BindFlags=D3D11_BIND_RENDER_TARGET|D3D11_BIND_SHADER_RESOURCE;
         check_hresult(device->CreateTexture2D(&desc,nullptr,&texture));check_hresult(device->CreateRenderTargetView(texture.Get(),nullptr,&target));
         desc.BindFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;check_hresult(device->CreateTexture2D(&desc,nullptr,&staging));
         ComPtr<IDXGISurface> dxgi;check_hresult(texture.As(&dxgi));com_ptr<IInspectable> inspectable;
-        check_hresult(CreateDirect3D11SurfaceFromDXGISurface(dxgi.Get(),inspectable.put()));surface=inspectable.as<Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface>();
+        check_hresult(CreateDirect3D11SurfaceFromDXGISurface(dxgi.Get(),inspectable.put()));surface=inspectable.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface>();
         player=MediaPlayer();player.CommandManager().IsEnabled(false);player.IsVideoFrameServerEnabled(true);
         auto weak=get_weak();
         player.VideoFrameAvailable([weak](MediaPlayer const& sender,auto const&){if(auto self=weak.get())self->frame(sender);});
@@ -128,7 +128,7 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
             auto playback=sender.PlaybackSession();double width=playback.NaturalVideoWidth(),height=playback.NaturalVideoHeight();if(width<1||height<1)return;
             double factor=(std::min)(kagami::width/width,kagami::height/height);
             const float black[4]{};context->ClearRenderTargetView(target.Get(),black);
-            sender.CopyFrameToVideoSurface(surface,Windows::Foundation::Rect(float((kagami::width-width*factor)/2),float((kagami::height-height*factor)/2),float(width*factor),float(height*factor)));
+            sender.CopyFrameToVideoSurface(surface,winrt::Windows::Foundation::Rect(float((kagami::width-width*factor)/2),float((kagami::height-height*factor)/2),float(width*factor),float(height*factor)));
             context->CopyResource(staging.Get(),texture.Get());std::vector<BYTE> pixels(kagami::frameBytes);D3D11_MAPPED_SUBRESOURCE mapped{};
             check_hresult(context->Map(staging.Get(),0,D3D11_MAP_READ,0,&mapped));
             for(unsigned y=0;y<kagami::height;++y)memcpy(pixels.data()+size_t(y)*kagami::width*4,static_cast<BYTE*>(mapped.pData)+size_t(y)*mapped.RowPitch,kagami::width*4);

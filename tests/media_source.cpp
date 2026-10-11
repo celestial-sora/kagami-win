@@ -30,9 +30,12 @@ static BYTE firstByte(IMFSample* s) {
     BYTE* pixels{}; DWORD size{}; check(buffer->Lock(&pixels,nullptr,&size),"lock sample");
     BYTE first=pixels[0]; check(buffer->Unlock(),"unlock sample"); return first;
 }
-static void exercise(IClassFactory* factory, unsigned mediaTypeIndex) {
+static void exercise(IClassFactory* factory, unsigned mediaTypeIndex,kagami::OutputFormat format={}) {
     ComPtr<IMFActivate> activate; check(factory->CreateInstance(nullptr,IID_PPV_ARGS(&activate)),"create activate");
     check(activate->SetString(KAGAMI_PIPE_NAME,kagami::pipeName().c_str()),"set local pipe");
+    check(activate->SetUINT32(KAGAMI_OUTPUT_WIDTH,format.width),"output width");
+    check(activate->SetUINT32(KAGAMI_OUTPUT_HEIGHT,format.height),"output height");
+    check(activate->SetUINT32(KAGAMI_OUTPUT_FPS,format.fps),"output FPS");
     ComPtr<IMFMediaSource> source; check(activate->ActivateObject(IID_PPV_ARGS(&source)),"activate actual DLL source");
     ComPtr<IMFMediaSource> reopened; check(activate->ActivateObject(IID_PPV_ARGS(&reopened)),"reopen existing source");
     if (reopened.Get() != source.Get()) { std::cerr<<"activation replaced a live source\n"; exit(1); }
@@ -45,6 +48,9 @@ static void exercise(IClassFactory* factory, unsigned mediaTypeIndex) {
     ComPtr<IMFStreamDescriptor> descriptor; check(pd->GetStreamDescriptorByIndex(0,&selected,&descriptor),"stream descriptor");
     ComPtr<IMFMediaTypeHandler> handler; check(descriptor->GetMediaTypeHandler(&handler),"type handler");
     ComPtr<IMFMediaType> type; check(handler->GetMediaTypeByIndex(mediaTypeIndex,&type),"advertised type");
+    UINT32 width{},height{},fps{},denominator{};check(MFGetAttributeSize(type.Get(),MF_MT_FRAME_SIZE,&width,&height),"advertised dimensions");
+    check(MFGetAttributeRatio(type.Get(),MF_MT_FRAME_RATE,&fps,&denominator),"advertised frame rate");
+    if(width!=format.width||height!=format.height||fps!=format.fps||denominator!=1){std::cerr<<"camera format mismatch\n";exit(1);}
     check(handler->SetCurrentMediaType(type.Get()),"select NV12/RGB32");
     PROPVARIANT position{}; check(source->Start(pd.Get(),nullptr,&position),"source Start");
     ComPtr<IMFMediaEvent> event; check(source->GetEvent(MF_EVENT_FLAG_NO_WAIT,&event),"new stream event");
@@ -52,8 +58,9 @@ static void exercise(IClassFactory* factory, unsigned mediaTypeIndex) {
     ComPtr<IMFMediaStream> stream; check(value.punkVal->QueryInterface(IID_PPV_ARGS(&stream)),"media stream"); PropVariantClear(&value);
     BYTE black = mediaTypeIndex == 0 ? 16 : 0;
     auto first=sample(stream.Get()); if (firstByte(first.Get())!=black) { std::cerr<<"initial black incorrect\n"; exit(1); }
+    LONGLONG duration{};check(first->GetSampleDuration(&duration),"sample duration");if(duration!=10000000/format.fps){std::cerr<<"sample rate mismatch\n";exit(1);}
     kagami::FrameWriter writer;
-    if (!writer.start() || !writer.push(std::vector<BYTE>(kagami::frameBytes,73))) { std::cerr<<"writer failed\n"; exit(1); }
+    if (!writer.start() || !writer.push(std::vector<BYTE>(size_t(format.width)*format.height*4,73),format)) { std::cerr<<"writer failed\n"; exit(1); }
     BYTE expected=mediaTypeIndex==0 ? 79 : 73;
     bool received=false;
     for (int i=0;i<100;++i) if (firstByte(sample(stream.Get()).Get())==expected) { received=true; break; }
@@ -69,6 +76,8 @@ int main() {
     HMODULE dll=LoadLibraryW(L"dist/KagamiCamera.dll"); if (!dll) { std::cerr<<"load DLL failed\n"; return 1; }
     using GetFactory=HRESULT(__stdcall*)(REFCLSID,REFIID,void**);
     auto get=reinterpret_cast<GetFactory>(GetProcAddress(dll,"DllGetClassObject")); if (!get) return 1;
-    { ComPtr<IClassFactory> factory; check(get(CLSID_VirtualCameraMediaSource,IID_PPV_ARGS(&factory)),"DLL factory"); exercise(factory.Get(),0); exercise(factory.Get(),1); }
+    { ComPtr<IClassFactory> factory; check(get(CLSID_VirtualCameraMediaSource,IID_PPV_ARGS(&factory)),"DLL factory");
+      for(auto format:{kagami::OutputFormat{},kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24}})for(unsigned type=0;type<2;++type)exercise(factory.Get(),type,format);
+    }
     FreeLibrary(dll); MFShutdown(); CoUninitialize();
 }

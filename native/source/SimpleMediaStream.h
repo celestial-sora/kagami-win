@@ -70,6 +70,7 @@ namespace winrt::WindowsSample::implementation
         std::wstring m_pipeName;
         DWORD m_dwStreamId = 0;
         LONGLONG m_nextSampleTime = 0;
+        LONGLONG m_sampleDuration = 333333;
         MFSampleAllocatorUsage m_allocatorUsage;
     };
 }

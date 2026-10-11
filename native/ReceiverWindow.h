@@ -1,6 +1,7 @@
 #pragma once
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <dwmapi.h>
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <winrt/Windows.Graphics.Capture.h>
@@ -9,6 +10,7 @@
 #include "Framing.h"
 #pragma comment(lib,"d3d11.lib")
 #pragma comment(lib,"windowsapp.lib")
+#pragma comment(lib,"dwmapi.lib")
 namespace kagami {
 // Capture only a window owned by the explicitly started receiver process.
 // No monitor capture, saved frames, remote IPC or physical camera access.
@@ -21,16 +23,18 @@ class ReceiverWindow {
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
     winrt::Windows::Graphics::SizeInt32 size{};
+    HWND receiverWindow{};
 public:
     void stop() noexcept {
         try {if(session)session.Close();if(pool)pool.Close();}catch(...){}
         session=nullptr;pool=nullptr;item=nullptr;runtimeDevice=nullptr;
-        staging.Reset();context.Reset();device.Reset();size={};
+        staging.Reset();context.Reset();device.Reset();size={};receiverWindow=nullptr;
     }
     ~ReceiverWindow(){stop();}
     void start(HWND window,DWORD expectedPid) {
         stop();DWORD pid{};GetWindowThreadProcessId(window,&pid);
         if(pid!=expectedPid||!IsWindowVisible(window))throw winrt::hresult_error(E_ACCESSDENIED);
+        receiverWindow=window;
         if(!winrt::Windows::Graphics::Capture::GraphicsCaptureSession::IsSupported())throw winrt::hresult_error(E_NOTIMPL);
         auto interop=winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem,IGraphicsCaptureItemInterop>();
         winrt::check_hresult(interop->CreateForWindow(window,winrt::guid_of<winrt::Windows::Graphics::Capture::GraphicsCaptureItem>(),winrt::put_abi(item)));
@@ -60,6 +64,17 @@ public:
         winrt::check_hresult(context->Map(staging.Get(),0,D3D11_MAP_READ,0,&map));
         for(int y=0;y<size.Height;++y)memcpy(pixels.data()+size_t(y)*size.Width*4,static_cast<BYTE*>(map.pData)+size_t(y)*map.RowPitch,size_t(size.Width)*4);
         context->Unmap(staging.Get(),0);frame.Close();
+        // WGC includes the renderer's title bar. Restrict input to its client area.
+        RECT client{},bounds{};POINT origin{};
+        if(GetClientRect(receiverWindow,&client)&&ClientToScreen(receiverWindow,&origin)&&
+            SUCCEEDED(DwmGetWindowAttribute(receiverWindow,DWMWA_EXTENDED_FRAME_BOUNDS,&bounds,sizeof(bounds)))) {
+            int left=origin.x-bounds.left,top=origin.y-bounds.top;
+            int width=client.right,height=client.bottom;
+            if(left>=0&&top>=0&&width>0&&height>0&&left+width<=size.Width&&top+height<=size.Height) {
+                Framing f;f.x=double(left)/size.Width;f.y=double(top)/size.Height;f.w=double(width)/size.Width;f.h=double(height)/size.Height;
+                return reframe(pixels,size.Width,size.Height,f);
+            }
+        }
         return reframe(pixels,size.Width,size.Height,Framing{});
     }
 };

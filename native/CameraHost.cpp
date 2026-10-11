@@ -13,6 +13,7 @@
 #include "ConnectionControls.h"
 #include "AirPlayReceiver.h"
 #include "SmartViewReceiver.h"
+#include "OutputControls.h"
 #include "source/VirtualCameraMediaSource.h"
 using Microsoft::WRL::ComPtr;
 static ComPtr<IMFVirtualCamera> camera;
@@ -53,8 +54,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     switch (message) {
     case WM_CREATE: {
         host=hwnd; framingControls::load();
-        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Start Smart View"};
-        for (int i=0;i<12;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(i>=9?101+i:100+i)),nullptr,nullptr);
+        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Start Smart View",L"Change format"};
+        for (int i=0;i<13;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(i>=9?101+i:100+i)),nullptr,nullptr);
         syncCrop();
         SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off");
         SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off");
@@ -96,13 +97,16 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         if (LOWORD(w) == 100) {
             HRESULT hr = openCamera();
             if (SUCCEEDED(hr)) hr = camera->SetString(KAGAMI_PIPE_NAME, kagami::pipeName().c_str());
+            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_WIDTH,ui::format.width);
+            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_HEIGHT,ui::format.height);
+            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_FPS,ui::format.fps);
             if (SUCCEEDED(hr)) hr = camera->Start(nullptr);
             ui::enabled = SUCCEEDED(hr); report(hr, L"Camera enabled. Waiting output is black.");
         } else if (LOWORD(w) == 101) {
             if (!ui::enabled) { setStatus(L"Enable the Kagami camera first."); return 0; }
             if (!writer.start()) { setStatus(L"Cannot own the Kagami output. Close the other Kagami producer first."); return 0; }
             tick = 0;
-            if(!SetTimer(hwnd,1,33,nullptr)) {writer.stop();setStatus(L"Cannot start the preview timer.");return 0;}
+            if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr)) {writer.stop();setStatus(L"Cannot start the preview timer.");return 0;}
             ui::running = true;
             setStatus(L"Synthetic test pattern running. This checks camera output, not phone compatibility.");
         } else if (LOWORD(w) == 102) {
@@ -127,7 +131,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
                 android.start(connectionControls::selected);
-                if(!SetTimer(hwnd,1,33,nullptr))throw winrt::hresult_error(E_FAIL);
+                if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
                 ui::running=true;ui::android=true;setStatus(L"Starting the authorized Android receiver. Keep its window open.");
             } catch(const winrt::hresult_error& error) {stopMedia(hwnd);setStatus(error.message().c_str());}
             connectionControls::selected.clear();
@@ -137,7 +141,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             if(!ui::enabled||ui::running){setStatus(L"Enable the Kagami camera and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
-                airplay.start();if(!SetTimer(hwnd,1,33,nullptr))throw winrt::hresult_error(E_FAIL);
+                airplay.start();if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
                 ui::running=true;ui::airplay=true;setStatus(L"AirPlay starting. Select Kagami in Screen Mirroring on the same local network.");
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"Cannot start the AirPlay receiver.");}
@@ -145,17 +149,21 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             if(!ui::enabled||ui::running){setStatus(L"Enable the camera and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
-                smartview.start();if(!SetTimer(hwnd,1,33,nullptr))throw winrt::hresult_error(E_FAIL);
+                smartview.start();if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
                 ui::running=true;ui::smartview=true;setStatus(L"Starting Windows Smart View receiver. Keep its window open.");
             }catch(winrt::hresult_error const& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"Cannot start the Smart View receiver.");}
+        } else if(LOWORD(w)==113) {
+            outputControls::show(hwnd);
+        } else if(LOWORD(w)==114) {
+            setStatus(L"Output format saved. Enable the Kagami camera, then reopen your camera app.");
         }
         ui::refresh(hwnd); return 0;
     case WM_TIMER: {
         if(smartview.active()) {
             try {std::wstring message;auto pixels=smartview.take(message);
                 if(pixels.empty()){writer.slate();ui::source.clear();ui::preview.clear();}
-                else {ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value);writer.push(ui::preview);}
+                else {ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value,ui::format.width,ui::format.height);writer.push(ui::preview,ui::format);}
                 if(!message.empty())setStatus(message.c_str());
             }catch(winrt::hresult_error const& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"Smart View processing failed; output cleared.");}
@@ -164,8 +172,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         if(airplay.active()) {
             try {
                 auto pixels=airplay.take();if(pixels.empty())return 0;
-                ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value);
-                writer.push(ui::preview);setStatus(L"AirPlay video received. Audio plays through Windows desktop output.");
+                ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value,ui::format.width,ui::format.height);
+                writer.push(ui::preview,ui::format);setStatus(L"AirPlay video received. Audio plays through Windows desktop output.");
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"AirPlay processing failed; output cleared.");}
             return 0;
@@ -173,8 +181,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         if(android.active()) {
             try {
                 auto pixels=android.take();if(pixels.empty())return 0;
-                ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value);
-                writer.push(ui::preview);setStatus(L"Android receiver running. Drag the source preview to crop; use Framing controls to rotate or mirror.");
+                ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value,ui::format.width,ui::format.height);
+                writer.push(ui::preview,ui::format);setStatus(L"Android receiver running. Drag the source preview to crop; use Framing controls to rotate or mirror.");
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             return 0;
         }
@@ -183,7 +191,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             size_t i=(y*kagami::width+x)*4;
             pixels[i]=BYTE((x+tick*6)%256); pixels[i+1]=BYTE(y%256); pixels[i+2]=BYTE(tick%256); pixels[i+3]=255;
         }
-        ui::source=pixels; pixels = kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value); writer.push(pixels); ui::preview = std::move(pixels); ++tick; InvalidateRect(hwnd,nullptr,FALSE); return 0;
+        ui::source=pixels; pixels = kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value,ui::format.width,ui::format.height); writer.push(pixels,ui::format); ui::preview = std::move(pixels); ++tick; InvalidateRect(hwnd,nullptr,FALSE); return 0;
     }
     case WM_DESTROY:
         stopMedia(hwnd);
@@ -230,6 +238,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
     HWND hwnd=CreateWindowW(cls.lpszClassName,L"Kagami",WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT,CW_USEDEFAULT,1400,900,nullptr,nullptr,instance,nullptr);
     if (!hwnd) { MFShutdown(); RoUninitialize(); return 2; }
     ShowWindow(hwnd,show); MSG msg{};
-    while (GetMessageW(&msg,nullptr,0,0)>0) { if (!(connectionControls::window&&IsDialogMessageW(connectionControls::window,&msg))&&!(framingControls::window&&IsDialogMessageW(framingControls::window,&msg))&&!IsDialogMessageW(hwnd,&msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
+    while (GetMessageW(&msg,nullptr,0,0)>0) { if (!(outputControls::window&&IsDialogMessageW(outputControls::window,&msg))&&!(connectionControls::window&&IsDialogMessageW(connectionControls::window,&msg))&&!(framingControls::window&&IsDialogMessageW(framingControls::window,&msg))&&!IsDialogMessageW(hwnd,&msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
     MFShutdown(); RoUninitialize(); return static_cast<int>(msg.wParam);
 }

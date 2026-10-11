@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdint>
 #include <chrono>
+#include "OutputFormat.h"
 
 namespace kagami {
 constexpr uint32_t width = 1280, height = 720, frameBytes = width * height * 4;
@@ -15,8 +16,9 @@ struct Header { uint32_t magic, width, height, bytes; };
 constexpr Header header{0x314D474B, width, height, frameBytes};
 static_assert(sizeof(Header) == 16);
 inline bool valid(const Header& h) {
-    return h.magic == header.magic && h.width == width && h.height == height && h.bytes == frameBytes;
+    return h.magic == header.magic && OutputFormat{h.width,h.height,30}.valid() && h.bytes==h.width*h.height*4;
 }
+struct Frame {Header format=header;std::vector<BYTE> pixels;};
 inline bool validPipe(const std::wstring& name) {
     const std::wstring prefix = L"\\\\.\\pipe\\Kagami.S-1-5-21-";
     if (name.size() <= prefix.size() || name.size() > 180 || name.compare(0, prefix.size(), prefix)) return false;
@@ -49,6 +51,7 @@ class FrameReader {
     std::thread worker;
     std::mutex lock;
     std::vector<BYTE> latest;
+    Header latestFormat=header;
     std::wstring endpoint;
 public:
     ~FrameReader() { stop(); }
@@ -63,9 +66,11 @@ public:
                 HANDLE pipe = CreateFileW(endpoint.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
                 if (pipe == INVALID_HANDLE_VALUE) { Sleep(50); continue; }
                 Header h{};
-                std::vector<BYTE> pixels(frameBytes);
-                while (!stopped && transfer(pipe, &h, sizeof(h), false, stopped) && valid(h) && transfer(pipe, pixels.data(), frameBytes, false, stopped)) {
-                    std::lock_guard guard(lock); latest = pixels;
+                std::vector<BYTE> pixels;
+                while (!stopped && transfer(pipe, &h, sizeof(h), false, stopped) && valid(h)) {
+                    pixels.resize(h.bytes);
+                    if(!transfer(pipe,pixels.data(),h.bytes,false,stopped))break;
+                    std::lock_guard guard(lock); latest = pixels;latestFormat=h;
                 }
                 CloseHandle(pipe);
                 { std::lock_guard guard(lock); latest.clear(); }
@@ -73,6 +78,7 @@ public:
         });
     }
     std::vector<BYTE> snapshot() { std::lock_guard guard(lock); return latest; }
+    Frame snapshotFrame() {std::lock_guard guard(lock);return {latestFormat,latest};}
 };
 inline std::wstring userSid() {
     HANDLE token{};
@@ -92,6 +98,8 @@ class FrameWriter {
     std::thread worker;
     std::mutex lock;
     std::vector<BYTE> latest = std::vector<BYTE>(frameBytes, 0);
+    Header latestFormat=header;
+    unsigned fps=30;
     HANDLE pipe = INVALID_HANDLE_VALUE;
 public:
     ~FrameWriter() { stop(); }
@@ -105,7 +113,7 @@ public:
         if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr)) return false;
         SECURITY_ATTRIBUTES sa{sizeof(sa), descriptor, FALSE};
         pipe = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, frameBytes + sizeof(Header), 0, 0, &sa);
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 1920*1080*4 + sizeof(Header), 0, 0, &sa);
         LocalFree(descriptor);
         if (pipe == INVALID_HANDLE_VALUE) return false;
         stopped = false;
@@ -125,10 +133,10 @@ public:
                 auto deadline = std::chrono::steady_clock::now();
                 while (!stopped) {
                     std::vector<BYTE> pixels;
-                    { std::lock_guard guard(lock); pixels = latest; }
-                    Header h = header;
-                    if (!transfer(pipe, &h, sizeof(h), true, stopped) || !transfer(pipe, pixels.data(), frameBytes, true, stopped)) break;
-                    deadline += std::chrono::microseconds(33333);
+                    Header h;unsigned rate;
+                    { std::lock_guard guard(lock); pixels = latest;h=latestFormat;rate=fps; }
+                    if (!transfer(pipe, &h, sizeof(h), true, stopped) || !transfer(pipe, pixels.data(), h.bytes, true, stopped)) break;
+                    deadline += std::chrono::microseconds(1000000/rate);
                     std::this_thread::sleep_until(deadline);
                     if (deadline < std::chrono::steady_clock::now()) deadline = std::chrono::steady_clock::now();
                 }
@@ -137,8 +145,11 @@ public:
         });
         return true;
     }
-    bool push(const std::vector<BYTE>& pixels) { if (pixels.size() != frameBytes) return false; std::lock_guard guard(lock); latest = pixels; return true; }
-    void slate() { std::lock_guard guard(lock); latest.assign(frameBytes, 0); }
+    bool push(const std::vector<BYTE>& pixels,OutputFormat format={}) {
+        if(!format.valid()||pixels.size()!=size_t(format.width)*format.height*4)return false;
+        std::lock_guard guard(lock);latest=pixels;latestFormat={header.magic,format.width,format.height,unsigned(pixels.size())};fps=format.fps;return true;
+    }
+    void slate() { std::lock_guard guard(lock); latest.assign(frameBytes, 0);latestFormat=header;fps=30; }
     void stop() { stopped = true; if (worker.joinable()) worker.join(); if (pipe != INVALID_HANDLE_VALUE) CloseHandle(pipe); pipe = INVALID_HANDLE_VALUE; slate(); }
 };
 }

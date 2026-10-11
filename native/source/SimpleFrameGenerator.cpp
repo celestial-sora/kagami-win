@@ -2,6 +2,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 //
 #include "pch.h"
+#include "../Framing.h"
 
 HRESULT SimpleFrameGenerator::Initialize(_In_ IMFMediaType* pMediaType, const std::wstring& pipeName)
 {
@@ -13,7 +14,7 @@ HRESULT SimpleFrameGenerator::Initialize(_In_ IMFMediaType* pMediaType, const st
         RETURN_HR_MSG(MF_E_UNSUPPORTED_FORMAT, "Unsupported format: %s", winrt::to_hstring(m_subType).data());
     }
     RETURN_IF_FAILED(MFGetAttributeSize(pMediaType, MF_MT_FRAME_SIZE, &m_width, &m_height));
-    RETURN_HR_IF(MF_E_UNSUPPORTED_FORMAT, m_width != kagami::width || m_height != kagami::height);
+    RETURN_HR_IF(MF_E_UNSUPPORTED_FORMAT, !(kagami::OutputFormat{m_width,m_height,30}.valid()));
 
     m_reader.start(pipeName);
     return S_OK;
@@ -77,7 +78,10 @@ HRESULT SimpleFrameGenerator::_CreateRGB32Frame(
         return HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
     }
 
-    auto pixels = m_reader.snapshot();
+    auto frame = m_reader.snapshotFrame();
+    auto pixels=std::move(frame.pixels);
+    if(!pixels.empty()&&(frame.format.width!=width||frame.format.height!=height))
+        pixels=kagami::reframe(pixels,frame.format.width,frame.format.height,kagami::Framing{},width,height);
     for (DWORD row = 0; row < height; ++row) {
         auto out = pBuf + static_cast<ptrdiff_t>(row) * pitch;
         if (pixels.size() == width * height * 4) memcpy(out, pixels.data() + row * width * 4, width * 4);

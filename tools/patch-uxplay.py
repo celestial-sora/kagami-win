@@ -44,3 +44,7 @@ patch('renderers/audio_renderer.c', [
      '        fputs("\\nKAGAMI_AIRPLAY_AUDIO_FAILED\\n", stdout); fflush(stdout);\n'
      '        logger_log(logger, LOGGER_INFO, "GStreamer error (audio): %s %s", GST_MESSAGE_SRC_NAME(message),err->message);', 1),
 ])
+patch('renderers/video_renderer.c', [
+    ('"stream-type", 0, "is-live", TRUE, "format", GST_FORMAT_TIME, NULL);',
+     '"stream-type", 0, "is-live", TRUE, "format", GST_FORMAT_TIME, "max-buffers", (guint64) 64, "max-bytes", (guint64) (8 * 1024 * 1024), "max-time", (guint64) GST_SECOND, "leaky-type", 2, NULL);', 1),
+])
