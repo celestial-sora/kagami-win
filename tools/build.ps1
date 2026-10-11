@@ -33,7 +33,7 @@ foreach ($package in $packages) {
     Expand-Archive -LiteralPath $archive -DestinationPath ".local/deps/$($package.Name)" -Force
 }
 Invoke-Checked (Join-Path $taskRoot '.local/deps/cppwinrt/bin/cppwinrt.exe') @('-input','sdk','-output',"$taskRoot/.local/deps/cppwinrt/include")
-$common = @('/nologo','/O2','/std:c++17','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/D_WIN32_WINNT=0x0A00',"/I$taskRoot/native", "/I$taskRoot/.local/deps/cppwinrt/include", "/I$taskRoot/.local/deps/wil/include", "/Fo$taskRoot\build\")
+$common = @('/nologo','/utf-8','/O2','/std:c++17','/EHsc','/MT','/W4','/DUNICODE','/D_UNICODE','/D_WIN32_WINNT=0x0A00',"/I$taskRoot/native", "/I$taskRoot/.local/deps/cppwinrt/include", "/I$taskRoot/.local/deps/wil/include", "/Fo$taskRoot\build\")
 Write-Host '[2/5] Build Kagami Media Foundation camera'
 $sources = (Get-ChildItem -LiteralPath native/source -Filter '*.cpp').FullName
 Invoke-Checked cl ($common + @('/LD') + $sources + @('/link','/DEF:native/source/KagamiCamera.def','/OUT:dist/KagamiCamera.dll','advapi32.lib','shlwapi.lib','propsys.lib'))
@@ -41,7 +41,11 @@ Write-Host '[3/5] Build native desktop executable'
 Push-Location native
 try { Invoke-Checked rc @('/nologo','/fo','../build/app.res','app.rc') } finally { Pop-Location }
 Invoke-Checked cl ($common + @('native/CameraHost.cpp','build/app.res','/Fe:dist/Kagami.exe','/link','/SUBSYSTEM:WINDOWS','mfplat.lib','mfuuid.lib','mfsensorgroup.lib','ole32.lib','oleaut32.lib','uuid.lib','advapi32.lib','user32.lib','gdi32.lib','shell32.lib'))
-Write-Host '[4/5] Test actual local frame bridge (no camera registration)'
+Write-Host '[4/5] Test framing and actual local frame bridge (no camera registration)'
+Invoke-Checked cl ($common + @('tests/framing.cpp','/Fe:build/framing-tests.exe'))
+Invoke-Checked (Join-Path $taskRoot 'build/framing-tests.exe') @()
+Invoke-Checked cl ($common + @('tests/ui_layout.cpp','build/app.res','/Fe:build/ui-layout-tests.exe','/link','user32.lib','gdi32.lib','advapi32.lib'))
+Invoke-Checked (Join-Path $taskRoot 'build/ui-layout-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/bridge.cpp','/Fe:build/bridge-tests.exe','/link','advapi32.lib'))
 Invoke-Checked (Join-Path $taskRoot 'build/bridge-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/media_source.cpp','/Fe:build/source-tests.exe','/link','mfplat.lib','mf.lib','mfuuid.lib','ole32.lib','advapi32.lib','propsys.lib'))

@@ -6,12 +6,21 @@
 #include <string>
 #include "FrameBridge.h"
 #include "DesktopLaunch.h"
+#include "DesktopUI.h"
+#include "FramingControls.h"
 #include "source/VirtualCameraMediaSource.h"
 using Microsoft::WRL::ComPtr;
 static ComPtr<IMFVirtualCamera> camera;
 static kagami::FrameWriter writer;
-static HWND status;
+static HWND host;
+static void setStatus(const wchar_t* value) { ui::message = value; if(host) ui::refresh(host); }
 static unsigned tick;
+static bool dragging=false;
+static Gdiplus::PointF dragStart;
+static void syncCrop() {
+    auto& f=framingControls::value;
+    ui::cropRect=Gdiplus::RectF(float(f.x),float(f.y),float(f.w),float(f.h));
+}
 static bool elevated() {
     HANDLE token{}; TOKEN_ELEVATION value{}; DWORD bytes{};
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return true;
@@ -24,54 +33,101 @@ static HRESULT openCamera() {
         MFVirtualCameraAccess_CurrentUser, L"Kagami", L"{542A79E7-54AC-48F9-B948-4620292BCC85}", nullptr, 0, &camera);
 }
 static void report(HRESULT hr, const wchar_t* success) {
-    if (SUCCEEDED(hr)) SetWindowTextW(status, success);
-    else { wchar_t message[300]; swprintf_s(message, L"Operation failed (0x%08X). Install Kagami Setup, and check Windows camera privacy settings.", static_cast<unsigned>(hr)); SetWindowTextW(status, message); }
+    if (SUCCEEDED(hr)) setStatus(success);
+    else { wchar_t message[300]; swprintf_s(message, L"Operation failed (0x%08X). Install Kagami Setup, and check Windows camera privacy settings.", static_cast<unsigned>(hr)); setStatus(message); }
 }
 static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) {
     switch (message) {
-    case WM_CREATE:
-        CreateWindowW(L"STATIC", L"Kagami for Windows · Native camera development preview", WS_CHILD | WS_VISIBLE, 22, 20, 620, 24, hwnd, nullptr, nullptr, nullptr);
-        CreateWindowW(L"STATIC", L"Camera output: 1280 × 720 at 30 FPS\nAirPlay, Smart View and USB inputs are still under development.", WS_CHILD | WS_VISIBLE, 22, 55, 620, 55, hwnd, nullptr, nullptr, nullptr);
-        {
-        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera"};
-        for (int i=0; i<4; ++i) CreateWindowW(L"BUTTON", labels[i], WS_CHILD | WS_VISIBLE, 22 + i*154, 120, 145, 34, hwnd, reinterpret_cast<HMENU>(INT_PTR(100+i)), nullptr, nullptr);
-        }
-        status = CreateWindowW(L"STATIC", L"Stopped. No phone, camera or desktop capture has started.", WS_CHILD | WS_VISIBLE, 22, 180, 610, 90, hwnd, nullptr, nullptr, nullptr);
-        return 0;
+    case WM_CREATE: {
+        host=hwnd; framingControls::load();
+        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output"};
+        for (int i=0;i<8;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(100+i)),nullptr,nullptr);
+        syncCrop();
+        SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off");
+        SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off");
+        ui::refresh(hwnd); return 0;
+    }
+    case WM_SIZE: ui::refresh(hwnd); return 0;
+    case WM_ERASEBKGND: return 1;
+    case WM_DRAWITEM: ui::drawButton(reinterpret_cast<DRAWITEMSTRUCT*>(l)); return TRUE;
+    case WM_PAINT: { syncCrop(); PAINTSTRUCT paint; HDC dc=BeginPaint(hwnd,&paint); ui::paint(hwnd,dc); EndPaint(hwnd,&paint); return 0; }
+    case WM_LBUTTONDOWN: {
+        Gdiplus::PointF point(float(short(LOWORD(l)))/ui::scale,float(short(HIWORD(l)))/ui::scale);
+        if(ui::running&&!ui::output&&ui::imageRect.Contains(point)) {dragging=true;dragStart=point;SetCapture(hwnd);} return 0;
+    }
+    case WM_LBUTTONUP:
+        if(dragging) {
+            dragging=false;ReleaseCapture();
+            float x=float(short(LOWORD(l)))/ui::scale,y=float(short(HIWORD(l)))/ui::scale;
+            auto r=ui::imageRect;
+            x=(std::clamp)(x,r.X,r.GetRight()); y=(std::clamp)(y,r.Y,r.GetBottom());
+            if(std::abs(x-dragStart.X)>4&&std::abs(y-dragStart.Y)>4) {
+                auto& f=framingControls::value;
+                f.x=((std::min)(x,dragStart.X)-r.X)/r.Width; f.y=((std::min)(y,dragStart.Y)-r.Y)/r.Height;
+                f.w=std::abs(x-dragStart.X)/r.Width; f.h=std::abs(y-dragStart.Y)/r.Height;
+                framingControls::save();InvalidateRect(hwnd,nullptr,FALSE);
+            }
+        }return 0;
+    case WM_CAPTURECHANGED: dragging=false;return 0;
+    case WM_GETMINMAXINFO: {
+        auto info=reinterpret_cast<MINMAXINFO*>(l);
+        float dpi=GetDpiForWindow(hwnd)/96.f;
+        info->ptMinTrackSize={LONG(1100*dpi),LONG(830*dpi)}; return 0;
+    }
+    case WM_DPICHANGED: {
+        auto bounds=reinterpret_cast<RECT*>(l);
+        SetWindowPos(hwnd,nullptr,bounds->left,bounds->top,bounds->right-bounds->left,bounds->bottom-bounds->top,SWP_NOZORDER|SWP_NOACTIVATE);
+        ui::refresh(hwnd); return 0;
+    }
     case WM_COMMAND:
         if (LOWORD(w) == 100) {
             HRESULT hr = openCamera();
             if (SUCCEEDED(hr)) hr = camera->SetString(KAGAMI_PIPE_NAME, kagami::pipeName().c_str());
             if (SUCCEEDED(hr)) hr = camera->Start(nullptr);
-            report(hr, L"Camera enabled. Choose Kagami Windows Virtual Camera in OBS or Discord. Waiting output is black.");
+            ui::enabled = SUCCEEDED(hr); report(hr, L"Camera enabled. Waiting output is black.");
         } else if (LOWORD(w) == 101) {
-            if (!camera) { SetWindowTextW(status, L"Enable the Kagami camera first."); return 0; }
-            if (!writer.start()) { SetWindowTextW(status, L"Cannot own the Kagami output. Close the other Kagami producer first."); return 0; }
-            tick = 0; SetTimer(hwnd, 1, 33, nullptr);
-            SetWindowTextW(status, L"Synthetic test pattern running. This checks camera output, not phone compatibility.");
+            if (!ui::enabled) { setStatus(L"Enable the Kagami camera first."); return 0; }
+            if (!writer.start()) { setStatus(L"Cannot own the Kagami output. Close the other Kagami producer first."); return 0; }
+            tick = 0;
+            if(!SetTimer(hwnd,1,33,nullptr)) {writer.stop();setStatus(L"Cannot start the preview timer.");return 0;}
+            ui::running = true;
+            setStatus(L"Synthetic test pattern running. This checks camera output, not phone compatibility.");
         } else if (LOWORD(w) == 102) {
-            KillTimer(hwnd, 1); writer.stop(); SetWindowTextW(status, L"Stopped. Enabled camera returns black frames.");
+            KillTimer(hwnd, 1); writer.stop(); ui::running = false; ui::preview.clear(); ui::source.clear(); setStatus(L"Stopped. Enabled camera returns black frames.");
         } else if (LOWORD(w) == 103) {
-            KillTimer(hwnd, 1); writer.stop();
-            HRESULT hr = openCamera(); if (SUCCEEDED(hr)) hr = camera->Remove(); camera.Reset();
+            KillTimer(hwnd, 1); writer.stop(); ui::running = false; ui::preview.clear(); ui::source.clear();
+            HRESULT hr = openCamera(); if (SUCCEEDED(hr)) hr = camera->Remove();
+            if(SUCCEEDED(hr)) {camera.Reset();ui::enabled=false;}
             report(hr, L"Kagami camera removed for this user.");
+        } else if (LOWORD(w) == 104) {
+            framingControls::show(hwnd);
+        } else if (LOWORD(w) == 105) {
+            ui::guide=!ui::guide; SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off"); framingControls::save();
+        } else if (LOWORD(w) == 106) {
+            ui::safe=!ui::safe; SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off"); framingControls::save();
+        } else if (LOWORD(w) == 107) {
+            ui::output=!ui::output;SetWindowTextW(ui::buttons[7],ui::output?L"Show source preview":L"Show virtual camera output");
         }
-        return 0;
+        ui::refresh(hwnd); return 0;
     case WM_TIMER: {
         std::vector<BYTE> pixels(kagami::frameBytes);
         for (unsigned y=0; y<kagami::height; ++y) for (unsigned x=0; x<kagami::width; ++x) {
             size_t i=(y*kagami::width+x)*4;
             pixels[i]=BYTE((x+tick*6)%256); pixels[i+1]=BYTE(y%256); pixels[i+2]=BYTE(tick%256); pixels[i+3]=255;
         }
-        writer.push(pixels); ++tick; return 0;
+        ui::source=pixels; pixels = kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value); writer.push(pixels); ui::preview = std::move(pixels); ++tick; InvalidateRect(hwnd,nullptr,FALSE); return 0;
     }
     case WM_DESTROY:
-        KillTimer(hwnd, 1); writer.stop();
+        KillTimer(hwnd, 1); writer.stop(); ui::running = false; ui::preview.clear(); ui::source.clear();
         if (camera) camera->Shutdown(); camera.Reset(); PostQuitMessage(0); return 0;
     }
     return DefWindowProcW(hwnd, message, w, l);
 }
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    Gdiplus::GdiplusStartupInput graphicsInput; ULONG_PTR graphicsToken;
+    if (Gdiplus::GdiplusStartup(&graphicsToken,&graphicsInput,nullptr)!=Gdiplus::Ok) return 2;
+    struct GraphicsLifetime { ULONG_PTR token; ~GraphicsLifetime() { Gdiplus::GdiplusShutdown(token); } } graphicsLifetime{graphicsToken};
     if (wcscmp(args, L"--launch-desktop") == 0) {
         HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
         if (FAILED(hr)) return 2;
@@ -100,11 +156,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
         MFShutdown(); CoUninitialize(); return FAILED(hr) ? 2 : 0;
     }
     WNDCLASSW cls{}; cls.lpfnWndProc=windowProc; cls.hInstance=instance; cls.lpszClassName=L"io.kagami.Host";
-    cls.hCursor=LoadCursorW(nullptr, IDC_ARROW); cls.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1);
+    cls.hCursor=LoadCursorW(nullptr, IDC_ARROW); cls.hbrBackground=nullptr;
     cls.hIcon=LoadIconW(instance, MAKEINTRESOURCEW(1)); RegisterClassW(&cls);
-    HWND hwnd=CreateWindowW(cls.lpszClassName,L"Kagami",WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,CW_USEDEFAULT,680,340,nullptr,nullptr,instance,nullptr);
+    HWND hwnd=CreateWindowW(cls.lpszClassName,L"Kagami",WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT,CW_USEDEFAULT,1400,900,nullptr,nullptr,instance,nullptr);
     if (!hwnd) { MFShutdown(); CoUninitialize(); return 2; }
     ShowWindow(hwnd,show); MSG msg{};
-    while (GetMessageW(&msg,nullptr,0,0)>0) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+    while (GetMessageW(&msg,nullptr,0,0)>0) { if (!(framingControls::window&&IsDialogMessageW(framingControls::window,&msg))&&!IsDialogMessageW(hwnd,&msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
     MFShutdown(); CoUninitialize(); return static_cast<int>(msg.wParam);
 }

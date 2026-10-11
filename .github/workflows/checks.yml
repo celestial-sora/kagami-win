@@ -1,7 +1,7 @@
 name: Windows checks
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**']
+    branches: [main, 'feat/**', 'fix/**', 'codex/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,5 +27,6 @@ jobs:
           path: |
             dist/
             build/SHA256SUMS
+            build/ui-preview.png
             build/winget/
           if-no-files-found: error
