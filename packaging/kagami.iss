@@ -24,6 +24,7 @@ LicenseFile=..\LICENSE
 Source: "..\dist\Kagami.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\KagamiCamera.dll"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
 Source: "..\dist\LICENSE*.txt"; DestDir: "{app}"
+Source: "..\dist\airplay\*"; DestDir: "{app}\airplay"; Flags: recursesubdirs createallsubdirs
 Source: "Install-OptionalDependencies.ps1"; DestDir: "{app}"
 
 [Registry]
@@ -43,4 +44,3 @@ Filename: "{app}\Kagami.exe"; Parameters: "--launch-desktop"; Description: "Open
 
 [UninstallRun]
 Filename: "{app}\Kagami.exe"; Parameters: "--remove-camera"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveCurrentUserKagamiCamera"
-

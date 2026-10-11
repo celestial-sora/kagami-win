@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$Installer, [switch]$InstallBuildDependencies)
+param([switch]$Installer, [switch]$InstallBuildDependencies, [switch]$AirPlay)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $taskRoot
@@ -10,7 +10,17 @@ function Invoke-Checked {
 }
 if ($InstallBuildDependencies) {
     Invoke-Checked winget @('install','--id','Microsoft.VisualStudio.2022.BuildTools','--exact','--source','winget','--silent','--accept-package-agreements','--accept-source-agreements','--override','--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended')
+    if ($AirPlay) { Invoke-Checked winget @('install','--id','MSYS2.MSYS2','--exact','--source','winget','--silent','--accept-package-agreements','--accept-source-agreements') }
     if ($Installer) { Invoke-Checked winget @('install','--id','JRSoftware.InnoSetup','--exact','--source','winget','--silent','--accept-package-agreements','--accept-source-agreements') }
+}
+if ($AirPlay) {
+    $msysBash = 'C:/msys64/usr/bin/bash.exe'
+    if (!(Test-Path -LiteralPath $msysBash)) { throw 'Install MSYS2.MSYS2 with winget for the AirPlay build.' }
+    $env:MSYSTEM = 'UCRT64'
+    $env:CHERE_INVOKING = '1'
+    Invoke-Checked $msysBash @('-lc', 'pacman -Syu --noconfirm')
+    Invoke-Checked $msysBash @('-lc', 'pacman -S --needed --noconfirm git mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-libplist mingw-w64-ucrt-x86_64-openssl mingw-w64-ucrt-x86_64-gstreamer mingw-w64-ucrt-x86_64-gst-plugins-base mingw-w64-ucrt-x86_64-gst-plugins-good mingw-w64-ucrt-x86_64-gst-plugins-bad mingw-w64-ucrt-x86_64-gst-libav')
+    Invoke-Checked $msysBash @('-lc', 'mkdir -p build && bash tools/build-airplay.sh')
 }
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (!(Test-Path -LiteralPath $vswhere)) { throw 'Install C++ Build Tools with -InstallBuildDependencies.' }
