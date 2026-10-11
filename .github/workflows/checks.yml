@@ -17,10 +17,15 @@ jobs:
       - name: Build native source, desktop, IPC checks and setup EXE
         shell: pwsh
         run: ./tools/build.ps1 -Installer
+      - name: Prepare WinGet candidate from the built installer
+        shell: pwsh
+        run: |
+          ./tools/New-WinGetManifest.ps1 -InstallerPath ./dist/Kagami-Setup-0.1.0-dev-x64.exe -InstallerUrl https://github.com/celestial-sora/kagami-win/releases/download/v0.1.0-dev/Kagami-Setup-0.1.0-dev-x64.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: kagami-windows-development-${{ github.sha }}
           path: |
             dist/
             build/SHA256SUMS
+            build/winget/
           if-no-files-found: error

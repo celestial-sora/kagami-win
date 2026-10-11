@@ -6,6 +6,8 @@ The camera appears as **Kagami Windows Virtual Camera**, independently of OBS' o
 
 ## Build
 
+The intended end-user command is `winget install celestial-sora.Kagami`. It is **not available in the public catalog yet**. See [WinGet distribution](docs/winget.md) for manifest generation, release verification and submission requirements. End users will receive the same `.exe` installer through WinGet.
+
 Install build dependencies through winget, then build the native camera, app, actual IPC contracts and setup executable:
 
 ```powershell
