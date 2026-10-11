@@ -14,6 +14,7 @@
 #include <winrt/Windows.Media.Core.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
 #include <sstream>
+#include <chrono>
 #include "SmartViewProtocol.h"
 using namespace winrt;
 using namespace winrt::Windows::ApplicationModel::Core;
@@ -151,6 +152,10 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
                 throw hresult_error(FAILED(error)?error:E_FAIL,detail);
             }
             status=co_await receiver.GetStatusAsync();if(cancelled())co_return;
+            for(unsigned attempt=0;attempt<12&&status.ListeningStatus()==MiracastReceiverListeningStatus::NotListening;++attempt) {
+                co_await winrt::resume_after(std::chrono::milliseconds(250));if(cancelled())co_return;
+                status=co_await receiver.GetStatusAsync();if(cancelled())co_return;
+            }
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::DisabledByPolicy)throw hresult_error(E_ACCESSDENIED,L"Smart View reception is disabled by Windows administrative policy.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::TemporarilyDisabled)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY),L"Smart View is temporarily unavailable while other Wi-Fi activity is in progress.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::NotListening)
