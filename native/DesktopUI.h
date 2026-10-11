@@ -25,7 +25,7 @@ inline void path(GraphicsPath& p,RectF r,float diameter=18){
 inline void rounded(Graphics& g,RectF r,Color color,bool outline=false,Color stroke=border){GraphicsPath p;path(p,r);SolidBrush b(color);g.FillPath(&b,&p);if(outline){Pen pen(stroke);g.DrawPath(&pen,&p);}}
 inline void text(Graphics& g,const wchar_t* value,float x,float top,float width,float height,float size=15,bool bold=false,Color color=ink,bool center=false){
     Font font(L"Segoe UI",size,bold?FontStyleBold:FontStyleRegular,UnitPixel);SolidBrush brush(color);StringFormat f;
-    f.SetTrimming(StringTrimmingEllipsisWord);if(center)f.SetAlignment(StringAlignmentCenter);
+    f.SetTrimming(StringTrimmingEllipsisWord);f.SetFormatFlags(StringFormatFlagsLineLimit);if(center)f.SetAlignment(StringAlignmentCenter);
     g.DrawString(value,-1,&font,RectF(x,top,width,height),&f,&brush);
 }
 inline void monitor(Graphics& g,float x,float top,float size){
@@ -106,8 +106,8 @@ inline void paint(HWND hwnd,HDC dc){
     if(guide){Pen line(Color(160,240,220,250));for(int i=1;i<3;++i){float x=imageRect.X+imageRect.Width*i/3,top=imageRect.Y+imageRect.Height*i/3;g.DrawLine(&line,x,imageRect.Y,x,imageRect.GetBottom());g.DrawLine(&line,imageRect.X,top,imageRect.GetRight(),top);}}
     if(safe){Pen line(Color(200,240,220,250));line.SetDashStyle(DashStyleDash);g.DrawRectangle(&line,imageRect.X+imageRect.Width*.05f,imageRect.Y+imageRect.Height*.05f,imageRect.Width*.9f,imageRect.Height*.9f);}g.Restore(saved);
     rounded(g,RectF(rightStart,height-184,right-18,142),Color(255,33,32,43),true);text(g,L"How to Use",inner,height-171,300,26,20,true);
-    float column=(right-58)/3;const wchar_t* headings[]{L"Start AirPlay / Smart View",L"Adjust Crop (Optional)",L"Use in OBS / Apps"};const wchar_t* descriptions[]{L"Enable camera, start receiving, then mirror your phone. USB / ADB setup is also available.",L"Drag the source preview to crop. Open framing controls for rotation, mirror and presets.",L"Select Kagami as your camera. Wireless receiver audio uses Desktop Audio."};
-    for(int i=0;i<3;++i){float x=inner+i*column;SolidBrush step(i==0?Color(255,89,81,255):i==1?Color(255,172,69,235):Color(255,230,87,218));g.FillEllipse(&step,x,height-139,34.f,34.f);wchar_t n[]{wchar_t(L'1'+i),0};text(g,n,x,height-137,34,32,22,true,ink,true);if(i==0)sourceIcon(g,x+54,height-133,28,false);else monitor(g,x+54,height-134,28);text(g,headings[i],x,height-99,column-16,27,15,true);text(g,descriptions[i],x,height-72,column-16,28,13,false,muted);}
+    float column=(right-58)/3;const wchar_t* headings[]{L"Start AirPlay / Smart View",L"Adjust Crop (Optional)",L"Use in OBS / Apps"};const wchar_t* descriptions[]{L"Enable camera, then Start. Mirror your phone.",L"Drag to crop. Framing controls: rotate, mirror and presets.",L"Select Kagami in apps. Wireless audio uses Desktop Audio."};
+    for(int i=0;i<3;++i){float x=inner+i*column;SolidBrush step(i==0?Color(255,89,81,255):i==1?Color(255,172,69,235):Color(255,230,87,218));g.FillEllipse(&step,x,height-139,34.f,34.f);wchar_t n[]{wchar_t(L'1'+i),0};text(g,n,x,height-137,34,32,22,true,ink,true);if(i==0)sourceIcon(g,x+54,height-133,28,false);else monitor(g,x+54,height-134,28);text(g,headings[i],x,height-99,column-16,22,15,true);text(g,descriptions[i],x,height-78,column-16,34,13,false,muted);}
     Graphics screen(dc);screen.DrawImage(&buffer,0,0);HICON icon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(1));DrawIconEx(dc,int(26*scale),int(22*scale),icon,int(48*scale),int(48*scale),0,nullptr,DI_NORMAL);
 }
 inline void drawButton(DRAWITEMSTRUCT* item){
@@ -116,7 +116,7 @@ inline void drawButton(DRAWITEMSTRUCT* item){
     if(item->CtlID==112||item->CtlID==115){
         bool cast=item->CtlID==112,selected=selectedSource==(cast?1:0);g.ScaleTransform(scale,scale);width/=scale;height/=scale;
         rounded(g,RectF(1,1,width-2,height-2),selected?Color(255,86,56,98):Color(255,47,44,59),true,selected?Color(255,231,148,247):border);
-        sourceIcon(g,16,14,30,cast);text(g,cast?L"Smart View":L"AirPlay",16,height-48,width-30,25,20,true);text(g,cast?L"Samsung / Android":L"iPhone / iPad / Mac",16,height-22,width-24,21,13,false,muted);
+        sourceIcon(g,16,10,40,cast);text(g,cast?L"Smart View":L"AirPlay",16,height-48,width-30,25,20,true);text(g,cast?L"Samsung / Android":L"iPhone / iPad / Mac",16,height-22,width-24,21,13,false,muted);
         Pen radio(ink);if(selected){SolidBrush dot(ink);g.FillEllipse(&dot,width-26,20.f,10.f,10.f);}else g.DrawEllipse(&radio,width-26,20.f,10.f,10.f);
     }else if(item->CtlID==105||item->CtlID==106||item->CtlID==110){
         bool on=item->CtlID==105?guide:item->CtlID==106?safe:mirrored;const wchar_t* label=item->CtlID==105?L"Show Framing Guide":item->CtlID==106?L"Show Safe Area (OBS)":L"Mirror Preview / Output";

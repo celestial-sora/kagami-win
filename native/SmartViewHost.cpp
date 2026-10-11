@@ -184,4 +184,3 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {
     try{init_apartment(apartment_type::single_threaded);CoreApplication::Run(make<ReceiverApp>());return 0;}catch(...){return 2;}
 }
-
