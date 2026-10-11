@@ -54,8 +54,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     switch (message) {
     case WM_CREATE: {
         host=hwnd; framingControls::load();
-        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Start Smart View",L"Change format"};
-        for (int i=0;i<13;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(i>=9?101+i:100+i)),nullptr,nullptr);
+        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
+        for (int i=0;i<14;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(i==13?115:i>=9?101+i:100+i)),nullptr,nullptr);
         syncCrop();
         SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off");
         SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off");
@@ -130,14 +130,16 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             if(!ui::enabled||ui::running) {setStatus(L"Enable the camera and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
-                android.start(connectionControls::selected);
+                android.start(connectionControls::selected,ui::format.fps);
                 if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
                 ui::running=true;ui::android=true;setStatus(L"Starting the authorized Android receiver. Keep its window open.");
             } catch(const winrt::hresult_error& error) {stopMedia(hwnd);setStatus(error.message().c_str());}
+            catch(...){stopMedia(hwnd);setStatus(L"Cannot start the Android receiver.");}
             connectionControls::selected.clear();
         } else if(LOWORD(w)==110) {
             framingControls::value.mirror=!framingControls::value.mirror;framingControls::save();syncCrop();
         } else if(LOWORD(w)==111) {
+            if(ui::selectedSource==1){SendMessageW(hwnd,WM_COMMAND,116,0);return 0;}
             if(!ui::enabled||ui::running){setStatus(L"Enable the Kagami camera and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
@@ -145,7 +147,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
                 ui::running=true;ui::airplay=true;setStatus(L"AirPlay starting. Select Kagami in Screen Mirroring on the same local network.");
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"Cannot start the AirPlay receiver.");}
-        } else if(LOWORD(w)==112) {
+        } else if(LOWORD(w)==116) {
             if(!ui::enabled||ui::running){setStatus(L"Enable the camera and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
@@ -157,6 +159,9 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             outputControls::show(hwnd);
         } else if(LOWORD(w)==114) {
             setStatus(L"Output format saved. Enable the Kagami camera, then reopen your camera app.");
+        } else if(LOWORD(w)==112||LOWORD(w)==115) {
+            if(ui::running)return 0;ui::selectedSource=LOWORD(w)==112?1:0;framingControls::save();
+            setStatus(ui::selectedSource==1?L"Smart View selected. Enable camera, then Start Smart View.":L"AirPlay selected. Enable camera, then Start AirPlay.");
         }
         ui::refresh(hwnd); return 0;
     case WM_TIMER: {
@@ -184,6 +189,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
                 ui::source=pixels;ui::preview=kagami::reframe(pixels,kagami::width,kagami::height,framingControls::value,ui::format.width,ui::format.height);
                 writer.push(ui::preview,ui::format);setStatus(L"Android receiver running. Drag the source preview to crop; use Framing controls to rotate or mirror.");
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
+            catch(...){stopMedia(hwnd);setStatus(L"Android processing failed; output cleared.");}
             return 0;
         }
         std::vector<BYTE> pixels(kagami::frameBytes);

@@ -1,10 +1,12 @@
 #pragma once
+#include "DialogStyle.h"
 namespace outputControls {
 inline HWND window{},dimensions{},rate{};inline HFONT font{};inline HWND host{};
 struct Size {unsigned w,h;const wchar_t* label;};
 inline const Size sizes[]{{1920,1080,L"1920 × 1080 (16:9)"},{1280,720,L"1280 × 720 (16:9)"},{960,540,L"960 × 540 (16:9)"},{640,480,L"640 × 480 (4:3)"},{1080,1920,L"1080 × 1920 (portrait)"},{720,1280,L"720 × 1280 (portrait)"},{1080,1080,L"1080 × 1080 (square)"}};
 inline const unsigned rates[]{15,24,30,60};
 inline LRESULT CALLBACK proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
+    bool styled=false;auto response=dialogStyle::message(message,w,l,styled);if(styled)return response;
     if(message==WM_COMMAND&&LOWORD(w)==401){
         if(ui::enabled||ui::running){MessageBoxW(hwnd,L"Remove the Kagami camera first, then change its output format and Enable camera again.",L"Camera format",MB_ICONINFORMATION);return 0;}
         auto size=SendMessageW(dimensions,CB_GETCURSEL,0,0),fps=SendMessageW(rate,CB_GETCURSEL,0,0);
@@ -16,8 +18,9 @@ inline LRESULT CALLBACK proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
 }
 inline void show(HWND parent){
     if(window){SetForegroundWindow(window);return;}host=parent;
-    WNDCLASSW cls{};cls.lpfnWndProc=proc;cls.hInstance=GetModuleHandleW(nullptr);cls.lpszClassName=L"Kagami.Output";cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);cls.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_WINDOW+1);RegisterClassW(&cls);
+    WNDCLASSW cls{};cls.lpfnWndProc=proc;cls.hInstance=GetModuleHandleW(nullptr);cls.lpszClassName=L"Kagami.Output";cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);cls.hbrBackground=dialogStyle::background();RegisterClassW(&cls);
     window=CreateWindowW(cls.lpszClassName,L"Kagami · Camera output",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,CW_USEDEFAULT,CW_USEDEFAULT,550,320,parent,nullptr,cls.hInstance,nullptr);
+    dialogStyle::title(window);
     float dpi=GetDpiForWindow(window)/96.f;font=CreateFontW(int(-15*dpi),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");
     auto control=[&](const wchar_t* kind,const wchar_t* label,DWORD style,int x,int y,int width,int height,int id=0){auto child=CreateWindowW(kind,label,WS_CHILD|WS_VISIBLE|style,int(x*dpi),int(y*dpi),int(width*dpi),int(height*dpi),window,reinterpret_cast<HMENU>(INT_PTR(id)),cls.hInstance,nullptr);SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);return child;};
     control(L"STATIC",L"Remove camera before changing its format. Enable it again and reopen your camera app afterwards. Frame rate is a target; reception depends on the phone and PC.",0,20,16,500,76);

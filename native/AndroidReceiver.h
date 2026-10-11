@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include "ReceiverWindow.h"
+#include "AdbCommand.h"
 namespace kagami {
 class AndroidReceiver {
     HANDLE process{},job{};
@@ -21,13 +22,14 @@ public:
         if(job){TerminateJobObject(job,0);CloseHandle(job);job=nullptr;}
         if(process){CloseHandle(process);process=nullptr;}pid=0;
     }
-    void start(const std::wstring& serial) {
+    void start(const std::wstring& serial,unsigned fps=30) {
         stop();
-        if(serial.empty()||serial.size()>180||serial.find_first_not_of(L"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-")!=std::wstring::npos)
+        if(!validAdbTarget(serial))
             throw winrt::hresult_error(E_INVALIDARG,L"Enter an already authorized ADB device serial or debugging IP:port.");
         wchar_t path[32768]{};
         if(!SearchPathW(nullptr,L"scrcpy.exe",nullptr,ARRAYSIZE(path),path,nullptr))throw winrt::hresult_error(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND),L"Install Genymobile.scrcpy through winget, then restart Kagami.");
-        std::wstring command=L"\""+std::wstring(path)+L"\" --serial="+serial+L" --no-audio --no-control --max-size=1920 --max-fps=30 --window-title=Kagami-Android-input --window-borderless --window-width=1280 --window-height=720 --no-window-aspect-ratio-lock --background-color=000000";
+        if(fps!=15&&fps!=24&&fps!=30&&fps!=60)throw winrt::hresult_error(E_INVALIDARG,L"Unsupported Android input frame rate.");
+        std::wstring command=L"\""+std::wstring(path)+L"\" --serial="+serial+L" --no-audio --no-control --max-size=1920 --max-fps="+std::to_wstring(fps)+L" --window-title=Kagami-Android-input --window-borderless --window-width=1280 --window-height=720 --no-window-aspect-ratio-lock --background-color=#000000";
         job=CreateJobObjectW(nullptr,nullptr);if(!job)throw winrt::hresult_error(HRESULT_FROM_WIN32(GetLastError()));
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         if(!SetInformationJobObject(job,JobObjectExtendedLimitInformation,&limits,sizeof(limits))){stop();throw winrt::hresult_error(E_FAIL);}
@@ -42,7 +44,7 @@ public:
     }
     std::vector<BYTE> take() {
         if(!process)return {};
-        if(WaitForSingleObject(process,0)!=WAIT_TIMEOUT){stop();throw winrt::hresult_error(E_FAIL,L"Android receiver stopped. Unlock the phone, authorize ADB, and check scrcpy 3.0+.");}
+        if(WaitForSingleObject(process,0)!=WAIT_TIMEOUT){stop();throw winrt::hresult_error(E_FAIL,L"Android receiver stopped. Unlock the phone, authorize ADB, and update scrcpy through winget.");}
         if(!window){WindowSearch search{pid,nullptr};EnumWindows(findWindow,reinterpret_cast<LPARAM>(&search));
             if(!search.found){if(GetTickCount64()-started>15000){stop();throw winrt::hresult_error(HRESULT_FROM_WIN32(WAIT_TIMEOUT),L"No Android receiver window appeared. Check ADB authorization and scrcpy.");}return {};}
             window=search.found;capture.start(window,pid);

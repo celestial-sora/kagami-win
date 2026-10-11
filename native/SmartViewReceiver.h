@@ -25,11 +25,13 @@ public:
     void start() {
         stop();auto family=packageFamily();
         if(family.empty())throw winrt::hresult_error(E_FAIL,L"Install the optional Smart View companion from Kagami Setup, then reopen Kagami.");
+        auto desktopSid=userSid();
+        if(desktopSid.empty())throw winrt::hresult_error(E_ACCESSDENIED,L"Cannot identify the desktop user for Smart View IPC.");
         GUID id{};winrt::check_hresult(CoCreateGuid(&id));wchar_t guid[40]{};StringFromGUID2(id,guid,40);
         std::wstring name=L"\\\\.\\pipe\\LOCAL\\Kagami.SmartView."+std::wstring(guid+1,36);
         PSID packageSid{};winrt::check_hresult(HRESULT_FROM_WIN32(DeriveAppContainerSidFromAppContainerName(family.c_str(),&packageSid)));
         LPWSTR sidText{};if(!ConvertSidToStringSidW(packageSid,&sidText)){FreeSid(packageSid);throw winrt::hresult_error(E_FAIL);}FreeSid(packageSid);
-        std::wstring acl=L"D:P(A;;GA;;;"+userSid()+L")(A;;GRGW;;;"+sidText+L")S:(ML;;NW;;;LW)";LocalFree(sidText);
+        std::wstring acl=L"D:P(A;;GA;;;"+desktopSid+L")(A;;GRGW;;;"+sidText+L")S:(ML;;NW;;;LW)";LocalFree(sidText);
         PSECURITY_DESCRIPTOR descriptor{};
         if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(acl.c_str(),SDDL_REVISION_1,&descriptor,nullptr))throw winrt::hresult_error(E_ACCESSDENIED);
         SECURITY_ATTRIBUTES sa{sizeof(sa),descriptor,FALSE};
@@ -39,6 +41,7 @@ public:
         stopped=false;ended=false;started=GetTickCount64();received=started;
         try {
             reader=std::thread([this] {
+                try {
                 OVERLAPPED ov{};ov.hEvent=CreateEventW(nullptr,TRUE,FALSE,nullptr);
                 BOOL connected=ov.hEvent?ConnectNamedPipe(pipe,&ov):FALSE;DWORD error=GetLastError();
                 if(ov.hEvent&&!connected&&error==ERROR_IO_PENDING){
@@ -56,6 +59,7 @@ public:
                         std::lock_guard guard(lock);status=packet;if(packet.bytes)latest=pixels;else latest.clear();received=GetTickCount64();
                     }
                 }
+                }catch(...){}
                 {std::lock_guard guard(lock);latest.clear();}ended=true;
             });
             expectedPid=activatePackage(family,L"Receiver",name+L" "+std::to_wstring(GetCurrentProcessId()));

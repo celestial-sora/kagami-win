@@ -28,7 +28,27 @@ static ComPtr<IMFSample> sample(IMFMediaStream* stream) {
 static BYTE firstByte(IMFSample* s) {
     ComPtr<IMFMediaBuffer> buffer; check(s->ConvertToContiguousBuffer(&buffer),"contiguous sample");
     BYTE* pixels{}; DWORD size{}; check(buffer->Lock(&pixels,nullptr,&size),"lock sample");
+    if(!size){std::cerr<<"empty sample\n";exit(1);}
     BYTE first=pixels[0]; check(buffer->Unlock(),"unlock sample"); return first;
+}
+static void uniformSample(IMFSample* s,unsigned typeIndex,kagami::OutputFormat format,BYTE expected){
+    ComPtr<IMFMediaBuffer> buffer;check(s->GetBufferByIndex(0,&buffer),"sample buffer");
+    ComPtr<IMF2DBuffer2> twoD;check(buffer.As(&twoD),"2D sample buffer");
+    BYTE *scan{},*base{};LONG stride{};DWORD length{};
+    check(twoD->Lock2DSize(MF2DBuffer_LockFlags_Read,&scan,&stride,&base,&length),"read sample rows");
+    bool ok=true;
+    for(unsigned y=0;y<format.height;++y){
+        auto row=scan+ptrdiff_t(y)*stride;unsigned rowBytes=format.width*(typeIndex==0?1:4);
+        if(row<base||row+rowBytes>base+length){ok=false;break;}
+        for(unsigned x=0;x<rowBytes;++x)if(row[x]!=expected){ok=false;break;}
+    }
+    if(typeIndex==0)for(unsigned y=0;y<format.height/2;++y){
+        auto row=scan+ptrdiff_t(format.height+y)*stride;
+        if(row<base||row+format.width>base+length){ok=false;break;}
+        for(unsigned x=0;x<format.width;++x)if(row[x]!=128){ok=false;break;}
+    }
+    check(twoD->Unlock2D(),"unlock read rows");
+    if(!ok){std::cerr<<"sample pixels/stride/planes incorrect\n";exit(1);}
 }
 static void exercise(IClassFactory* factory, unsigned mediaTypeIndex,kagami::OutputFormat format={}) {
     ComPtr<IMFActivate> activate; check(factory->CreateInstance(nullptr,IID_PPV_ARGS(&activate)),"create activate");
@@ -58,15 +78,44 @@ static void exercise(IClassFactory* factory, unsigned mediaTypeIndex,kagami::Out
     ComPtr<IMFMediaStream> stream; check(value.punkVal->QueryInterface(IID_PPV_ARGS(&stream)),"media stream"); PropVariantClear(&value);
     BYTE black = mediaTypeIndex == 0 ? 16 : 0;
     auto first=sample(stream.Get()); if (firstByte(first.Get())!=black) { std::cerr<<"initial black incorrect\n"; exit(1); }
+    uniformSample(first.Get(),mediaTypeIndex,format,black);
     LONGLONG duration{};check(first->GetSampleDuration(&duration),"sample duration");if(duration!=10000000/format.fps){std::cerr<<"sample rate mismatch\n";exit(1);}
     kagami::FrameWriter writer;
     if (!writer.start() || !writer.push(std::vector<BYTE>(size_t(format.width)*format.height*4,73),format)) { std::cerr<<"writer failed\n"; exit(1); }
     BYTE expected=mediaTypeIndex==0 ? 79 : 73;
     bool received=false;
-    for (int i=0;i<100;++i) if (firstByte(sample(stream.Get()).Get())==expected) { received=true; break; }
+    for (int i=0;i<100;++i) {
+        auto next=sample(stream.Get());
+        if(firstByte(next.Get())==expected){uniformSample(next.Get(),mediaTypeIndex,format,expected);received=true;break;}
+    }
     if (!received) { std::cerr<<"native sample did not contain pipe pixels\n"; exit(1); }
+    if(mediaTypeIndex==0){
+        std::vector<BYTE> colors(size_t(format.width)*format.height*4,0);
+        for(unsigned y=0;y<format.height;++y)for(unsigned x=0;x<format.width;++x){
+            const size_t i=(size_t(y)*format.width+x)*4;
+            // Three red pixels and one blue pixel per 2x2 block.
+            colors[i+((y%2==1&&x%2==0)?0:2)]=255;
+        }
+        if(!writer.push(colors,format)){std::cerr<<"color writer failed\n";exit(1);}
+        bool converted=false;
+        for(int i=0;i<100;++i){
+            auto next=sample(stream.Get());if(firstByte(next.Get())!=82)continue;
+            ComPtr<IMFMediaBuffer> buffer;check(next->GetBufferByIndex(0,&buffer),"color buffer");
+            ComPtr<IMF2DBuffer2> twoD;check(buffer.As(&twoD),"color 2D buffer");
+            BYTE *scan{},*base{};LONG stride{};DWORD length{};
+            check(twoD->Lock2DSize(MF2DBuffer_LockFlags_Read,&scan,&stride,&base,&length),"color read rows");
+            auto uv=scan+ptrdiff_t(format.height)*stride;
+            bool correct=scan[0]==82&&scan[1]==82&&scan[stride]==41&&scan[stride+1]==82&&uv[0]==128&&uv[1]==207;
+            check(twoD->Unlock2D(),"color unlock rows");
+            if(!correct){std::cerr<<"NV12 2x2 chroma averaging incorrect\n";exit(1);}converted=true;break;
+        }
+        if(!converted){std::cerr<<"NV12 color sample timeout\n";exit(1);}
+    }
     writer.stop(); bool cleared=false;
-    for (int i=0;i<100;++i) if (firstByte(sample(stream.Get()).Get())==black) { cleared=true; break; }
+    for (int i=0;i<100;++i) {
+        auto next=sample(stream.Get());
+        if(firstByte(next.Get())==black){uniformSample(next.Get(),mediaTypeIndex,format,black);cleared=true;break;}
+    }
     if (!cleared) { std::cerr<<"native sample did not clear on EOF\n"; exit(1); }
     check(source->Stop(),"source Stop"); check(activate->ShutdownObject(),"shutdown activation");
     std::cout<<(mediaTypeIndex==0?"NV12":"RGB32")<<": actual DLL activation, allocator, samples, local pixels, EOF black, Stop/Shutdown passed\n";

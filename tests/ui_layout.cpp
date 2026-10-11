@@ -6,8 +6,8 @@ int wmain() {
     Gdiplus::GdiplusStartupInput input;ULONG_PTR token{};assert(Gdiplus::GdiplusStartup(&token,&input,nullptr)==Gdiplus::Ok);
     {
         HWND window=CreateWindowW(L"STATIC",L"Kagami layout check",WS_POPUP,0,0,1400,900,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);assert(window);
-        const wchar_t* labels[]{L"Enable camera",L"Test pattern",L"Stop",L"Remove camera",L"Framing controls",L"Framing guide: Off",L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Start Smart View",L"Change format"};
-        for(int i=0;i<13;++i)ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|BS_OWNERDRAW,0,0,0,0,window,reinterpret_cast<HMENU>(INT_PTR(i>=9?101+i:100+i)),GetModuleHandleW(nullptr),nullptr);
+        const wchar_t* labels[]{L"Enable camera",L"Test pattern",L"Stop",L"Remove camera",L"Framing controls",L"Framing guide: Off",L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
+        for(int i=0;i<14;++i)ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|BS_OWNERDRAW,0,0,0,0,window,reinterpret_cast<HMENU>(INT_PTR(i==13?115:i>=9?101+i:100+i)),GetModuleHandleW(nullptr),nullptr);
         ui::layout(window);
         HDC dc=GetDC(window),memory=CreateCompatibleDC(dc);HBITMAP bitmap=CreateCompatibleBitmap(dc,1400,900);auto old=SelectObject(memory,bitmap);
         ui::scale=1;ui::paint(window,memory);assert(ui::previewRect.Width>0&&ui::previewRect.Height>0);

@@ -1,6 +1,7 @@
 #pragma once
 #include <appmodel.h>
 #include <shobjidl.h>
+#include <wrl/client.h>
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.ApplicationModel.Core.h>
 #include <winrt/Windows.Foundation.Collections.h>

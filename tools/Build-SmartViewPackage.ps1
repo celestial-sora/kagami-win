@@ -4,6 +4,12 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $taskRoot
 $stage = Join-Path $taskRoot 'build/smartview-package'
+# Reusing a stage can retain removed DLLs or an obsolete manifest. Delete only
+# this resolved workspace-owned staging directory before creating the package.
+$stage = [IO.Path]::GetFullPath($stage)
+$buildRoot = [IO.Path]::GetFullPath((Join-Path $taskRoot 'build')) + [IO.Path]::DirectorySeparatorChar
+if (!$stage.StartsWith($buildRoot,[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Smart View staging directory.' }
+if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force "$stage/Assets", 'dist/smartview' | Out-Null
 Copy-Item dist/Kagami.exe,dist/KagamiSmartView.exe,dist/LICENSE*.txt $stage -Force
 Copy-Item dist/airplay $stage -Recurse -Force
@@ -18,6 +24,8 @@ try {
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
         try {
             $graphics.Clear([Drawing.Color]::Transparent)
+            $graphics.CompositingMode = [Drawing.Drawing2D.CompositingMode]::SourceCopy
+            $graphics.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
             $factor = $asset.Size / [Math]::Max($art.Width,$art.Height)
             $width = [int]($art.Width*$factor); $height = [int]($art.Height*$factor)
             $graphics.DrawImage($art,[int](($asset.Size-$width)/2),[int](($asset.Size-$height)/2),$width,$height)

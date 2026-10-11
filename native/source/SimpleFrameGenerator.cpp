@@ -73,7 +73,7 @@ HRESULT SimpleFrameGenerator::_CreateRGB32Frame(
 {
     RETURN_HR_IF_NULL(E_INVALIDARG, pBuf);
     uint64_t rowBytes = pitch < 0 ? -static_cast<int64_t>(pitch) : pitch;
-    if (rowBytes < width * 4 || len < rowBytes * height)
+    if (rowBytes < width * 4 || len < rowBytes * (height - 1) + width * 4)
     {
         return HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
     }
@@ -107,10 +107,16 @@ void SimpleFrameGenerator::RGB24ToY(int R, int G, int B, BYTE* pY)
 
 void SimpleFrameGenerator::RGB32ToNV12(BYTE RGB1[8], BYTE RGB2[8], BYTE* pY1, BYTE* pY2, BYTE* pUV)
 {
-    RGB24ToYUY2(RGB1[2], RGB1[1], RGB1[0], pY1, pUV, pUV + 1);
+    RGB24ToY(RGB1[2], RGB1[1], RGB1[0], pY1);
     RGB24ToY(RGB1[6], RGB1[5], RGB1[4], pY1 + 1);
-    RGB24ToYUY2(RGB2[2], RGB2[1], RGB2[0], pY2, pUV, pUV + 1);
+    RGB24ToY(RGB2[2], RGB2[1], RGB2[0], pY2);
     RGB24ToY(RGB2[6], RGB2[5], RGB2[4], pY2 + 1);
+    // A chroma sample represents the complete 2x2 luma block.
+    const int r = (RGB1[2] + RGB1[6] + RGB2[2] + RGB2[6] + 2) / 4;
+    const int g = (RGB1[1] + RGB1[5] + RGB2[1] + RGB2[5] + 2) / 4;
+    const int b = (RGB1[0] + RGB1[4] + RGB2[0] + RGB2[4] + 2) / 4;
+    BYTE ignored{};
+    RGB24ToYUY2(r, g, b, &ignored, pUV, pUV + 1);
 };
 
 //////////////////////////////////////////////////
@@ -120,8 +126,15 @@ HRESULT SimpleFrameGenerator::RGB32ToNV12Frame(_Inout_updates_bytes_(len) BYTE* 
 {
     do
     {
-        RETURN_HR_IF(E_UNEXPECTED, width * 4 * height > cbBuff);
-        RETURN_HR_IF(E_UNEXPECTED, width * 1.5 * height > cbBuffOut);
+        // NV12 planes use a positive common stride. Reject invalid/padded
+        // capacities before touching either plane, using wide arithmetic.
+        RETURN_HR_IF(E_INVALIDARG, !width || !height || width % 2 || height % 2);
+        RETURN_HR_IF(E_INVALIDARG, stride < 0 || strideOut < 0);
+        RETURN_HR_IF(E_INVALIDARG, uint64_t(stride) < uint64_t(width) * 4 || uint64_t(strideOut) < width);
+        RETURN_HR_IF(HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER),
+            uint64_t(stride) * (height - 1) + uint64_t(width) * 4 > cbBuff);
+        RETURN_HR_IF(HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER),
+            uint64_t(strideOut) * (height + height / 2 - 1) + width > cbBuffOut);
         RETURN_HR_IF_NULL(E_INVALIDARG, pbBuff);
 
         RETURN_HR_IF_NULL(E_INVALIDARG, pbBuffOut);

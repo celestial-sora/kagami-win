@@ -4,12 +4,6 @@
 
 #include "pch.h"
 
-#define NUM_IMAGE_ROWS 720
-#define NUM_IMAGE_COLS 1280
-#define BYTES_PER_PIXEL 4
-#define IMAGE_BUFFER_SIZE_BYTES (NUM_IMAGE_ROWS * NUM_IMAGE_COLS * BYTES_PER_PIXEL)
-#define IMAGE_ROW_SIZE_BYTES (NUM_IMAGE_COLS * BYTES_PER_PIXEL)
-
 namespace winrt::WindowsSample::implementation
 {
     HRESULT SimpleMediaStream::Initialize(
@@ -52,8 +46,7 @@ namespace winrt::WindowsSample::implementation
         spMediaType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
         MFSetAttributeSize(spMediaType.get(), MF_MT_FRAME_SIZE, output.width, output.height);
         MFSetAttributeRatio(spMediaType.get(), MF_MT_FRAME_RATE, output.fps, 1);
-        // frame size * pixle bit size * framerate
-        uint32_t bitrate = (uint32_t)(output.width * 1.5 * output.height * 8* output.fps);
+        uint32_t bitrate = output.width * output.height * 12 * output.fps;
         spMediaType->SetUINT32(MF_MT_AVG_BITRATE, bitrate);
         MFSetAttributeRatio(spMediaType.get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
         mediaTypeList[0] = spMediaType.detach();
@@ -224,10 +217,27 @@ namespace winrt::WindowsSample::implementation
             &bufferLength));
         
 
-        auto frameResult = m_spFrameGenerator->CreateFrame(pbuf, bufferLength, pitch, m_rgbMask);
+        // Lock2DSize returns the allocation base separately from scanline zero.
+        // Check that all addressed rows/planes stay within that allocation,
+        // including bottom-up RGB32 buffers and aligned allocator strides.
+        UINT32 frameWidth{}, frameHeight{};
+        GUID subtype{};
+        HRESULT frameResult = MFGetAttributeSize(m_spMediaType.get(), MF_MT_FRAME_SIZE, &frameWidth, &frameHeight);
+        if (SUCCEEDED(frameResult)) frameResult = m_spMediaType->GetGUID(MF_MT_SUBTYPE, &subtype);
+        if (SUCCEEDED(frameResult)) {
+            const int64_t stride = pitch;
+            const int64_t rowBytes = subtype == MFVideoFormat_NV12 ? frameWidth : int64_t(frameWidth) * 4;
+            const int64_t rows = subtype == MFVideoFormat_NV12 ? int64_t(frameHeight) * 3 / 2 : frameHeight;
+            const int64_t offset = int64_t(reinterpret_cast<uintptr_t>(pbuf)) - int64_t(reinterpret_cast<uintptr_t>(bufferStart));
+            const int64_t first = offset + (stride < 0 ? (rows - 1) * stride : 0);
+            const int64_t last = offset + (stride > 0 ? (rows - 1) * stride : 0) + rowBytes;
+            if (!pbuf || !bufferStart || !rows || (subtype == MFVideoFormat_NV12 && stride < 0) ||
+                (stride < 0 ? -stride : stride) < rowBytes || first < 0 || last > bufferLength)
+                frameResult = HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
+            else frameResult = m_spFrameGenerator->CreateFrame(pbuf, bufferLength, pitch, m_rgbMask);
+        }
         RETURN_IF_FAILED(buffer2D->Unlock2D());
         RETURN_IF_FAILED(frameResult);
-        //RETURN_IF_FAILED(WriteSampleData(pbuf, bufferLength, pitch, NUM_IMAGE_COLS, NUM_IMAGE_ROWS));
 
         RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
         RETURN_IF_FAILED(sample->SetSampleDuration(m_sampleDuration));
