@@ -54,6 +54,8 @@ Invoke-Checked cl ($common + @('native/CameraHost.cpp','build/app.res','/Fe:dist
 Write-Host '[4/5] Test framing and actual local frame bridge (no camera registration)'
 Invoke-Checked cl ($common + @('tests/framing.cpp','/Fe:build/framing-tests.exe'))
 Invoke-Checked (Join-Path $taskRoot 'build/framing-tests.exe') @()
+Invoke-Checked cl ($common + @('tests/preset_identity.cpp','/Fe:build/preset-identity-tests.exe'))
+Invoke-Checked (Join-Path $taskRoot 'build/preset-identity-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/smartview_protocol.cpp','/Fe:build/smartview-protocol-tests.exe','/link','advapi32.lib'))
 Invoke-Checked (Join-Path $taskRoot 'build/smartview-protocol-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/adb_validation.cpp','/Fe:build/adb-validation-tests.exe','/link','windowsapp.lib','advapi32.lib'))

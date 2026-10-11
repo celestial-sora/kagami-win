@@ -126,7 +126,7 @@ int main() {
     using GetFactory=HRESULT(__stdcall*)(REFCLSID,REFIID,void**);
     auto get=reinterpret_cast<GetFactory>(GetProcAddress(dll,"DllGetClassObject")); if (!get) return 1;
     { ComPtr<IClassFactory> factory; check(get(CLSID_VirtualCameraMediaSource,IID_PPV_ARGS(&factory)),"DLL factory");
-      for(auto format:{kagami::OutputFormat{},kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24}})for(unsigned type=0;type<2;++type)exercise(factory.Get(),type,format);
+      for(auto format:{kagami::OutputFormat{},kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24},kagami::OutputFormat{854,480,15}})for(unsigned type=0;type<2;++type)exercise(factory.Get(),type,format);
     }
     FreeLibrary(dll); MFShutdown(); CoUninitialize();
 }

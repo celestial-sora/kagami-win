@@ -4,7 +4,7 @@
 #pragma comment(lib,"gdiplus.lib")
 namespace ui {
 using namespace Gdiplus;
-inline HWND buttons[14]{};
+inline HWND buttons[15]{};
 inline float scale=1,sidebar=358,vertical=1,rightStart=406;
 inline bool running=false,android=false,airplay=false,smartview=false,enabled=false,guide=false,safe=false,output=false,mirrored=false;
 inline int selectedSource=0;
@@ -36,13 +36,16 @@ inline void sourceIcon(Graphics& g,float x,float top,float size,bool cast){
 }
 inline void place(int i,float x,float top,float width,float height){MoveWindow(buttons[i],int(x*scale),int(top*scale),int(width*scale),int(height*scale),TRUE);}
 inline void layout(HWND hwnd){
-    RECT r;GetClientRect(hwnd,&r);scale=GetDpiForWindow(hwnd)/96.f;float width=r.right/scale,height=r.bottom/scale;
+    RECT r;GetClientRect(hwnd,&r);float dpi=GetDpiForWindow(hwnd)/96.f;
+    scale=dpi*(std::min)(1.f,(std::min)(r.right/(1100.f*dpi),r.bottom/(900.f*dpi)));
+    if(scale<=0)return;float width=r.right/scale,height=r.bottom/scale;
     sidebar=std::clamp(width*.28125f,358.f,540.f);rightStart=sidebar+48;vertical=(height-148)/908;
     place(10,width-552,28,132,44);place(0,width-410,28,132,44);place(1,width-268,28,126,44);place(2,width-132,28,110,44);
     float tile=(sidebar-46)/2;place(13,34,y(164),tile,116*vertical);place(11,48+tile,y(164),tile,116*vertical);place(8,34,y(290),sidebar-32,28*vertical);
     place(3,30,y(976),(sidebar-38)/2,34*vertical);place(4,44+(sidebar-38)/2,y(976),(sidebar-38)/2,34*vertical);
     place(5,30,y(814),sidebar-24,36*vertical);place(6,30,y(862),sidebar-24,36*vertical);place(9,30,y(910),sidebar-24,36*vertical);
     float input=18+sidebar*.29f;place(12,input,y(635),sidebar-(input-18)-18,30*vertical);
+    place(14,sidebar-70,y(480),72,28*vertical);
     place(7,rightStart,height-34,width-rightStart-18,26);
     EnableWindow(buttons[1],enabled&&!running);EnableWindow(buttons[0],!running);EnableWindow(buttons[8],enabled&&!running);EnableWindow(buttons[2],running);EnableWindow(buttons[10],enabled&&!running);EnableWindow(buttons[11],!running);EnableWindow(buttons[13],!running);EnableWindow(buttons[12],!running);
     SetWindowTextW(buttons[10],selectedSource==1?L"Start Smart View":L"Start AirPlay");

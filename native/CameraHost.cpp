@@ -14,6 +14,7 @@
 #include "AirPlayReceiver.h"
 #include "SmartViewReceiver.h"
 #include "OutputControls.h"
+#include "Diagnostics.h"
 #include "source/VirtualCameraMediaSource.h"
 using Microsoft::WRL::ComPtr;
 static ComPtr<IMFVirtualCamera> camera;
@@ -60,6 +61,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         syncCrop();
         SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off");
         SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off");
+        ui::buttons[14]=CreateWindowW(L"BUTTON",L"Check",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(117),nullptr,nullptr);
         ui::refresh(hwnd); return 0;
     }
     case WM_SIZE: ui::refresh(hwnd); return 0;
@@ -87,7 +89,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     case WM_GETMINMAXINFO: {
         auto info=reinterpret_cast<MINMAXINFO*>(l);
         float dpi=GetDpiForWindow(hwnd)/96.f;
-        info->ptMinTrackSize={LONG(1100*dpi),LONG(900*dpi)}; return 0;
+        MONITORINFO monitor{sizeof(monitor)};GetMonitorInfoW(MonitorFromWindow(hwnd,MONITOR_DEFAULTTONEAREST),&monitor);
+        info->ptMinTrackSize={(std::min)(LONG(1100*dpi),monitor.rcWork.right-monitor.rcWork.left),(std::min)(LONG(900*dpi),monitor.rcWork.bottom-monitor.rcWork.top)}; return 0;
     }
     case WM_DPICHANGED: {
         auto bounds=reinterpret_cast<RECT*>(l);
@@ -158,6 +161,8 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             catch(...){stopMedia(hwnd);setStatus(L"Cannot start the Smart View receiver.");}
         } else if(LOWORD(w)==113) {
             outputControls::show(hwnd);
+        } else if(LOWORD(w)==117) {
+            kagami::showDiagnostics(hwnd);
         } else if(LOWORD(w)==114) {
             setStatus(L"Output format saved. Enable the Kagami camera, then reopen your camera app.");
         } else if(LOWORD(w)==112||LOWORD(w)==115) {
@@ -242,7 +247,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
     WNDCLASSW cls{}; cls.lpfnWndProc=windowProc; cls.hInstance=instance; cls.lpszClassName=L"io.kagami.Host";
     cls.hCursor=LoadCursorW(nullptr, IDC_ARROW); cls.hbrBackground=nullptr;
     cls.hIcon=LoadIconW(instance, MAKEINTRESOURCEW(1)); RegisterClassW(&cls);
-    HWND hwnd=CreateWindowW(cls.lpszClassName,L"Kagami",WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT,CW_USEDEFAULT,1400,900,nullptr,nullptr,instance,nullptr);
+    MONITORINFO monitor{sizeof(monitor)};GetMonitorInfoW(MonitorFromPoint(POINT{},MONITOR_DEFAULTTOPRIMARY),&monitor);
+    HWND hwnd=CreateWindowW(cls.lpszClassName,L"Kagami",WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT,CW_USEDEFAULT,(std::min)(1400L,monitor.rcWork.right-monitor.rcWork.left),(std::min)(900L,monitor.rcWork.bottom-monitor.rcWork.top),nullptr,nullptr,instance,nullptr);
     if (!hwnd) { MFShutdown(); RoUninitialize(); return 2; }
     ShowWindow(hwnd,show); MSG msg{};
     while (GetMessageW(&msg,nullptr,0,0)>0) { if (!(outputControls::window&&IsDialogMessageW(outputControls::window,&msg))&&!(connectionControls::window&&IsDialogMessageW(connectionControls::window,&msg))&&!(framingControls::window&&IsDialogMessageW(framingControls::window,&msg))&&!IsDialogMessageW(hwnd,&msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }

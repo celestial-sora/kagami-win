@@ -15,10 +15,11 @@ The current expanded development branch must pass its own complete CI before int
 | Check | What it exercises | What it cannot establish |
 | :-- | :-- | :-- |
 | Frame bridge | Real local named-pipe delivery, exclusive producer, initial slate, dimension/pixel atomicity, landscape/portrait resizing, invalid sizes/rates, EOF/reconnect and bounded Stop with absent/stalled consumers. | Installed FrameServer identity access or concurrent camera consumers. |
-| Actual camera DLL | Direct activation of the built DLL with an MF allocator; advertised NV12/RGB32 dimensions and sample durations at default 1280×720@30, 1920×1080@60 and 720×1280@24; addressed rows/planes, local pixels, chroma conversion, EOF black, Stop/Shutdown. | Registered camera enumeration, consumer negotiation or effective hardware throughput. |
+| Actual camera DLL | Direct activation of the built DLL with an MF allocator; advertised NV12/RGB32 dimensions and sample durations at default 1280×720@30, 1920×1080@60, 720×1280@24 and custom 854×480@15; addressed rows/planes, local pixels, chroma conversion, EOF black, Stop/Shutdown. | Registered camera enumeration, consumer negotiation or effective hardware throughput. |
 | Framing | Crop, fit/fill, rotation, mirror and invalid normalized coordinates using synthetic pixels. | Phone orientation, real crop interaction or subjective image quality. |
 | UI layout | Native off-screen layout/control bounds and a rendered screenshot artifact. | Complete keyboard, DPI, multi-monitor or interactive usability acceptance. |
 | Smart View protocol / ADB validation | Bounded packet/endpoint validation and permitted command inputs. | Package activation, receiver driver support, wireless pairing or live media. |
+| Preset identity | Bounded labels and stable USB identities, rejecting wireless endpoint identities for persistent automatic matching. | Physical orientation changes, app-label selection and live preset restoration. |
 | AirPlay runtime preflight | Pinned patched backend build, required portable GStreamer plugin loading, source/license/runtime packaging. | Discovery through real firewall/network conditions, Apple reception or sound. |
 | EXE/MSIX packaging | Native compilation, manifest packing/development signing and installer production. | Successful installation, trust/registration, upgrade/uninstall or end-user launch. |
 
@@ -27,11 +28,12 @@ These checks do not register a camera, alter host networking, enable reception o
 ## Required physical and interactive acceptance
 
 - Install the EXE on a normal Windows 11 x64 desktop, verify fixed Program Files camera registration, unelevated launch, stopped initial state, preferences retained across upgrade and uninstall behavior.
-- Explicitly select the optional Smart View task; verify leaf certificate TrustedPeople scope, per-user MSIX activation, packaged main UI, unsupported-hardware messages and no automatic receiver start. Confirm optional package/certificate cleanup separately.
+- Explicitly select the optional Smart View task; verify leaf certificate TrustedPeople scope, per-user MSIX activation, packaged main UI, unsupported-hardware messages and no automatic receiver start. Test the normal-user companion removal shortcut before EXE uninstall, separate user registrations, upgrades and retained preferences/certificates using the [lifecycle guide](../packaging/SmartView-lifecycle.md).
 - Enable Kagami and enumerate/negotiate it in OBS and Discord. Check FrameServer service access, RGB32/NV12 formats, landscape/portrait/square changes after remove/re-enable/reopen and concurrent consumers.
 - Exercise real iPhone/iPad/Mac AirPlay, Galaxy Smart View and authorized Android USB/wireless debugging. Check pairing cancellation, renderer/companion close/minimize, main-app Stop/close/crash, producer EOF, reconnect requiring explicit Start, and black cleared camera output.
 - Confirm AirPlay WASAPI and Smart View MediaPlayer desktop sound, OBS Desktop Audio routing, AV sync, mute/failure handling and no surviving child audio after Stop.
 - Measure actual received/output FPS, latency, resizing/orientation, long-session memory use and transport timeouts. Output target rate alone is not proof of effective throughput.
+- Check custom numeric formats and rejection of odd/out-of-budget dimensions; test USB device/label/orientation preset restore without persisting wireless identities. Verify Check setup reports present/missing local files/registration accurately and never configures networking or starts capture.
 - Compare the reference screenshot at 100%/125%/150%/200% DPI; inspect keyboard focus, minimum window size, dark popups, multi-monitor transitions and screen-reader labels.
 - Inspect setup from an administrator terminal and a normal Explorer desktop. Stable distribution, trusted stable signing, public download verification and WinGet catalog acceptance remain separate gates.
 

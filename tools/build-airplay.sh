@@ -3,7 +3,8 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 sha=ec203121355220dd90278a369eeabb0b8ba4f14a
-source_dir="$root/.local/airplay-source-$sha"
+patch_hash=$(sha256sum "$root/tools/patch-uxplay.py" | cut -d ' ' -f 1)
+source_dir="$root/.local/airplay-source-$sha-$patch_hash"
 mkdir -p "$root/.local" "$root/dist/airplay/bin" "$root/dist/airplay/lib/gstreamer-1.0" "$root/dist/airplay/libexec/gstreamer-1.0" "$root/dist/airplay/share"
 if [[ ! -e "$source_dir" ]]; then
     git init -q "$source_dir"
@@ -11,9 +12,9 @@ if [[ ! -e "$source_dir" ]]; then
     git -C "$source_dir" fetch --depth=1 origin "$sha"
     git -C "$source_dir" checkout -q --detach FETCH_HEAD
     python "$root/tools/patch-uxplay.py" "$source_dir"
-    printf '%s\n' "$sha" > "$source_dir/KAGAMI-PATCHED"
+    printf '%s\n' "$sha:$patch_hash" > "$source_dir/KAGAMI-PATCHED"
 fi
-[[ $(cat "$source_dir/KAGAMI-PATCHED") == "$sha" ]] || exit 2
+[[ $(cat "$source_dir/KAGAMI-PATCHED") == "$sha:$patch_hash" ]] || exit 2
 [[ $(git -C "$source_dir" rev-parse HEAD) == "$sha" ]] || exit 2
 cmake -S "$source_dir" -B "$source_dir/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DNO_X11_DEPS=ON
 cmake --build "$source_dir/build" --parallel 2

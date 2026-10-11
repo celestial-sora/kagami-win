@@ -16,6 +16,8 @@ Setup elevates to install/register the fixed native DLL under Program Files. Des
 4. Select **Kagami Windows Virtual Camera** in your camera application. Installed OBS/Discord operation remains an acceptance check.
 5. **Stop** clears output to black. **Remove camera** removes the current user's Kagami camera.
 
+**Check setup** reports local backend/scanner files, ADB/scrcpy availability, the private Kagami camera registration and package context, with manual network/hardware/privacy guidance. It does not start capture or change host settings. While receiving an authorized USB device, saving a named preset also binds that label to the device and portrait/landscape orientation; those saved bindings can restore framing when orientation changes. Labels are chosen manually, not detected from the phone's foreground app. Wireless addresses are not used as persistent preset identities.
+
 | Transport | Preparation | Current limitation |
 | :-- | :-- | :-- |
 | AirPlay | Start AirPlay, then select Kagami in Apple Screen Mirroring on the same local network. | Owned UxPlay and WASAPI desktop audio are integrated; Apple devices and AV sync need testing. Keep the receiver window open. |
@@ -24,11 +26,11 @@ Setup elevates to install/register the fixed native DLL under Program Files. Des
 
 Select setup's optional Android dependency task to install `Genymobile.scrcpy` through winget, or run `winget install --id Genymobile.scrcpy --exact --source winget` separately. Verify scrcpy 4.0+ and restart Kagami after installation. ADB itself manages Android authorization independently of Kagami.
 
-The optional Smart View task explicitly trusts the shipped **public development signing leaf certificate** in machine `TrustedPeople`, then installs the MSIX for the normal desktop user. It does not add a root certificate. Each build uses an ephemeral signing key, deletes that private key after signing, and ships only the public certificate. Stable release signing is separate. EXE uninstall currently does not remove the optional per-user package or certificate; their cleanup and upgrades remain acceptance items.
+The optional Smart View task explicitly trusts the shipped **public development signing leaf certificate** in machine `TrustedPeople`, then installs the MSIX for the normal desktop user. It does not add a root certificate. Each build uses an ephemeral signing key, deletes that private key after signing, and ships only the public certificate. Stable release signing is separate. Before uninstalling the EXE, use **Remove Smart View companion (current user)** from the normal desktop account, or remove the package in Windows Settings. EXE uninstall does not automatically remove another user context's registration; the development certificate remains. See [companion lifecycle](packaging/SmartView-lifecycle.md) for cleanup/upgrade details. Installed lifecycle acceptance is pending.
 
 ## Output format and audio
 
-Output choices are 1920×1080, 1280×720, 960×540, 640×480, 1080×1920, 720×1280 and 1080×1080 at target rates 15/24/30/60 FPS. Apply changes with **Remove camera → Change format → Enable camera → reopen the consumer**. The source advertises RGB32 and NV12 at the selected dimensions/rate. Input is normalized to 1280×720, so larger outputs upscale that canvas. A 60 FPS output does not guarantee 60 distinct received phone frames per second.
+Output offers seven common presets plus custom numeric dimensions: even width 320–1920, even height 240–1920, and no more than 2,073,600 pixels total. Target rates are 15/24/30/60 FPS. Apply changes with **Remove camera → Change format → Enable camera → reopen the consumer**. The source advertises RGB32 and NV12 at the selected dimensions/rate. Input is normalized to 1280×720, so larger outputs upscale that canvas. A 60 FPS output does not guarantee 60 distinct received phone frames per second.
 
 AirPlay audio uses Windows desktop output; Smart View delegates playback to Windows MediaPlayer. These routes are intended for desktop-audio capture in apps such as OBS and create no separate Kagami audio device. Actual sound, routing and AV sync remain unverified.
 

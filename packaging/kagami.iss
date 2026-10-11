@@ -27,6 +27,7 @@ Source: "..\dist\LICENSE*.txt"; DestDir: "{app}"
 Source: "..\dist\airplay\*"; DestDir: "{app}\airplay"; Flags: recursesubdirs createallsubdirs
 Source: "Install-OptionalDependencies.ps1"; DestDir: "{app}"
 Source: "..\dist\smartview\*"; DestDir: "{app}\smartview"
+Source: "SmartView-lifecycle.md"; DestDir: "{app}\smartview"
 
 [Registry]
 Root: HKLM; Subkey: "Software\Classes\CLSID\{{542A79E7-54AC-48F9-B948-4620292BCC85}"; ValueType: string; ValueData: "Kagami Media Source"; Flags: uninsdeletekey
@@ -40,6 +41,7 @@ Name: "smartview"; Description: "Install Smart View companion and trust this bui
 
 [Icons]
 Name: "{group}\Kagami"; Filename: "{app}\Kagami.exe"
+Name: "{group}\Remove Smart View companion (current user)"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\smartview\Install-SmartView.ps1"" -Uninstall"; Comment: "Remove the optional companion for this desktop user; preserve Kagami preferences"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-OptionalDependencies.ps1"" -Dependency Android"; Tasks: android; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing optional Android dependencies through winget..."

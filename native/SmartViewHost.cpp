@@ -159,7 +159,7 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
         check_hresult(device->CreateTexture2D(&desc,nullptr,&texture));check_hresult(device->CreateRenderTargetView(texture.Get(),nullptr,&target));
         desc.BindFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;check_hresult(device->CreateTexture2D(&desc,nullptr,&staging));
         ComPtr<IDXGISurface> dxgi;check_hresult(texture.As(&dxgi));com_ptr<IInspectable> inspectable;
-        check_hresult(CreateDirect3D11SurfaceFromDXGISurface(dxgi.Get(),inspectable.put()));surface=inspectable.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface>();
+        check_hresult(CreateDirect3D11SurfaceFromDXGISurface(dxgi.Get(),reinterpret_cast<::IInspectable**>(inspectable.put())));surface=inspectable.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface>();
         player=MediaPlayer();player.CommandManager().IsEnabled(false);player.IsVideoFrameServerEnabled(true);
         auto weak=get_weak();auto epoch=generation.load();
         player.VideoFrameAvailable([weak,epoch](MediaPlayer const& sender,auto const&){if(auto self=weak.get())self->frame(sender,epoch);});

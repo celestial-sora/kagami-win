@@ -18,7 +18,7 @@ int main() {
     auto require=[](bool ok,const char* message){ if (!ok) { std::cerr<<message<<std::endl; exit(1); } };
     require(kagami::valid(kagami::header),"valid protocol");
     auto invalid=kagami::header; invalid.bytes++; require(!kagami::valid(invalid),"oversized frame rejected");
-    for(auto format:{kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24}}) {
+    for(auto format:{kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24},kagami::OutputFormat{854,480,15}}) {
         kagami::Header sized{kagami::header.magic,format.width,format.height,format.width*format.height*4};
         require(kagami::valid(sized),"landscape/portrait protocol accepted");
     }
@@ -34,7 +34,7 @@ int main() {
     require(!writer.push(std::vector<BYTE>(1)),"partial frames rejected");
     require(writer.push(std::vector<BYTE>(kagami::frameBytes,73)),"publish complete frame");
     require(waitFor(reader,false,73),"actual named pipe delivers full frame");
-    for(auto format:{kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24}}) {
+    for(auto format:{kagami::OutputFormat{1920,1080,60},kagami::OutputFormat{720,1280,24},kagami::OutputFormat{854,480,15}}) {
         require(writer.push(std::vector<BYTE>(size_t(format.width)*format.height*4,85),format),"publish selected dimensions");
         require(waitFor(reader,false,85,format),"format and pixels remain atomic across resize");
     }
