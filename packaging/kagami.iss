@@ -39,7 +39,7 @@ Name: "{group}\Kagami"; Filename: "{app}\Kagami.exe"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-OptionalDependencies.ps1"""; Tasks: obs; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing optional OBS Studio through winget..."
-Filename: "{app}\Kagami.exe"; Description: "Open Kagami (capture stays stopped)"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\Kagami.exe"; Parameters: "--launch-desktop"; Description: "Open Kagami (capture stays stopped)"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{app}\Kagami.exe"; Parameters: "--remove-camera"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveCurrentUserKagamiCamera"

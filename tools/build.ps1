@@ -40,7 +40,7 @@ Invoke-Checked cl ($common + @('/LD') + $sources + @('/link','/DEF:native/source
 Write-Host '[3/5] Build native desktop executable'
 Push-Location native
 try { Invoke-Checked rc @('/nologo','/fo','../build/app.res','app.rc') } finally { Pop-Location }
-Invoke-Checked cl ($common + @('native/CameraHost.cpp','build/app.res','/Fe:dist/Kagami.exe','/link','/SUBSYSTEM:WINDOWS','mfplat.lib','mfuuid.lib','mfsensorgroup.lib','ole32.lib','advapi32.lib','user32.lib','gdi32.lib','shell32.lib'))
+Invoke-Checked cl ($common + @('native/CameraHost.cpp','build/app.res','/Fe:dist/Kagami.exe','/link','/SUBSYSTEM:WINDOWS','mfplat.lib','mfuuid.lib','mfsensorgroup.lib','ole32.lib','oleaut32.lib','uuid.lib','advapi32.lib','user32.lib','gdi32.lib','shell32.lib'))
 Write-Host '[4/5] Test actual local frame bridge (no camera registration)'
 Invoke-Checked cl ($common + @('tests/bridge.cpp','/Fe:build/bridge-tests.exe','/link','advapi32.lib'))
 Invoke-Checked (Join-Path $taskRoot 'build/bridge-tests.exe') @()

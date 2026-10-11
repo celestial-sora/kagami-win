@@ -5,6 +5,7 @@
 #include <shellapi.h>
 #include <string>
 #include "FrameBridge.h"
+#include "DesktopLaunch.h"
 #include "source/VirtualCameraMediaSource.h"
 using Microsoft::WRL::ComPtr;
 static ComPtr<IMFVirtualCamera> camera;
@@ -71,8 +72,24 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     return DefWindowProcW(hwnd, message, w, l);
 }
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
+    if (wcscmp(args, L"--launch-desktop") == 0) {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (FAILED(hr)) return 2;
+        wchar_t path[32768]{};
+        DWORD length = GetModuleFileNameW(nullptr, path, ARRAYSIZE(path));
+        hr = length && length < ARRAYSIZE(path) ? kagami::launchOnDesktop(path, show) : E_FAIL;
+        if (FAILED(hr)) MessageBoxW(nullptr,
+            hr == E_ACCESSDENIED ?
+            L"Kagami needs a desktop running without administrator privileges. Enable User Account Control (UAC) and restart Windows if your desktop is running as administrator." :
+            L"Kagami is installed. Open Kagami from the Windows Start menu with your desktop user account.",
+            L"Kagami", MB_ICONINFORMATION);
+        CoUninitialize();
+        return FAILED(hr) ? 2 : 0;
+    }
     if (wcscmp(args, L"--remove-camera") != 0 && elevated()) {
-        MessageBoxW(nullptr, L"Run Kagami as your desktop user, not as administrator.", L"Kagami", MB_ICONERROR); return 2;
+        MessageBoxW(nullptr,
+            L"Kagami needs a desktop running without administrator privileges. If UAC is disabled, enable User Account Control and restart Windows. Then open Kagami from Start without Run as administrator.",
+            L"Kagami", MB_ICONERROR); return 2;
     }
     HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hr)) return 2;

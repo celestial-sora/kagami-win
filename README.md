@@ -18,9 +18,11 @@ pwsh -File tools/build.ps1 -Installer
 
 Or `pwsh -File tools/build.ps1 -InstallBuildDependencies -Installer`. C++/WinRT and WIL header packages are version-pinned and SHA-256 checked. The native runtime is bundled statically; end users do not need Python, npm or Visual Studio. Builds produce `dist/Kagami.exe`, `dist/KagamiCamera.dll`, `dist/Kagami-Setup-0.1.0-dev-x64.exe` and `build/SHA256SUMS`.
 
-Setup requests elevation to place/register the native source under protected Program Files. It launches the desktop with the original user's privileges; media refuses administrator execution. Optional OBS installation uses winget and is unchecked by default. Installation does not enable a camera or start mirroring. User settings directories are never removed by setup/uninstall.
+Setup requests elevation to place/register the native source under protected Program Files. Its optional post-install app launch delegates to the existing Windows Explorer desktop after checking Explorer is not elevated. This also handles setup started from an administrator terminal. If no suitable desktop exists, open Kagami from the Start menu. Media refuses administrator execution. Optional OBS installation uses winget and is unchecked by default. Installation does not enable a camera or start mirroring. User settings directories are never removed by setup/uninstall.
 
 After installation, open Kagami normally, click **Enable camera**, select **Kagami Windows Virtual Camera** in OBS/Discord, then optionally click **Test pattern**. **Stop** ends the producer; enabled camera output returns black. **Remove camera** removes only the current user's Kagami instance. Installed camera/consumer operation remains a manual acceptance check.
+
+Kagami requires a normal, unprivileged Windows desktop. With UAC disabled, an administrator account's Explorer may also be elevated; opening from Start then still inherits administrator rights. Enable UAC and restart Windows before using Kagami in that configuration. Setup alone may run elevated. For an interactive launch regression check, run `./tools/Test-DesktopLaunch.ps1` on a real Explorer desktop; it verifies the launched app's token without enabling a camera.
 
 ## Scope and provenance
 
