@@ -1,2 +1,4 @@
 1 ICON "../packaging/kagami.ico"
 1 24 "app.manifest"
+201 RCDATA "../assets/icons/airplay.png"
+202 RCDATA "../assets/icons/smartview.png"

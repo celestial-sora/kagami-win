@@ -69,6 +69,7 @@ Invoke-Checked (Join-Path $taskRoot 'build/source-tests.exe') @()
 Write-Host '[5/5] Package development installer'
 Copy-Item LICENSE dist/LICENSE.txt
 Copy-Item native/source/LICENSE.microsoft dist/LICENSE.microsoft.txt
+Copy-Item assets/icons/ATTRIBUTION.txt dist/LICENSE.icons.txt
 if ($Installer) {
     Invoke-Checked cl ($common + @('native/SmartViewHost.cpp','/Fe:dist/KagamiSmartView.exe','/link','/SUBSYSTEM:WINDOWS','/APPCONTAINER','windowsapp.lib','d3d11.lib','advapi32.lib','user32.lib','ole32.lib'))
     $packageVersion = if ($env:GITHUB_RUN_NUMBER) { "0.1.$($env:GITHUB_RUN_NUMBER).0" } else { '0.1.0.0' }

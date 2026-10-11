@@ -4,6 +4,11 @@
 #include <cassert>
 int wmain() {
     Gdiplus::GdiplusStartupInput input;ULONG_PTR token{};assert(Gdiplus::GdiplusStartup(&token,&input,nullptr)==Gdiplus::Ok);
+    // The connection glyphs are embedded assets, never runtime SVG/file loads.
+    for(int id:{201,202}){
+        auto resource=FindResourceW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(id),RT_RCDATA);
+        assert(resource&&SizeofResource(GetModuleHandleW(nullptr),resource)>0);
+    }
     {
         HWND window=CreateWindowW(L"STATIC",L"Kagami layout check",WS_POPUP,0,0,1400,900,nullptr,nullptr,GetModuleHandleW(nullptr),nullptr);assert(window);
         const wchar_t* labels[]{L"Enable camera",L"Test pattern",L"Stop",L"Remove camera",L"Framing controls",L"Framing guide: Off",L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};

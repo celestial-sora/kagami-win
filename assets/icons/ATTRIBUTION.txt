@@ -1,0 +1,17 @@
+Kagami transport icons
+
+AirPlay: user-provided airplay-svgrepo-com.svg. Original source comment:
+"Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools"
+
+Smart View: user-provided noun_smartview_3844661.svg.
+Created by The Icon Z, from the Noun Project.
+
+Original supplied SVG files are preserved in the source repository under
+assets/icons/airplay.svg and assets/icons/smartview.svg.
+The UI embeds transparent 128x128 PNG derivatives with lavender (#ddbef0)
+glyphs. Smart View is rasterized from its square glyph area; the original
+below-viewBox credit text is reproduced above instead of inside the UI tile.
+
+No license text accompanied the supplied SVGs. This file records provenance
+and attribution; it does not assert a license grant.
+The approved Kagami application artwork remains unchanged.

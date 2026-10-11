@@ -1,7 +1,10 @@
 #pragma once
 #include <gdiplus.h>
 #include <algorithm>
+#include <cstring>
+#include <ole2.h>
 #pragma comment(lib,"gdiplus.lib")
+#pragma comment(lib,"ole32.lib")
 namespace ui {
 using namespace Gdiplus;
 inline HWND buttons[15]{};
@@ -29,10 +32,26 @@ inline void monitor(Graphics& g,float x,float top,float size){
     Pen pen(muted,2.5f);g.DrawRectangle(&pen,x,top,size,size*.65f);g.DrawLine(&pen,x+size*.35f,top+size*.65f,x+size*.35f,top+size*.85f);g.DrawLine(&pen,x+size*.65f,top+size*.65f,x+size*.65f,top+size*.85f);g.DrawLine(&pen,x+size*.2f,top+size*.85f,x+size*.8f,top+size*.85f);
 }
 inline void sourceIcon(Graphics& g,float x,float top,float size,bool cast){
-    Pen pen(Color(255,221,190,240),2.5f);g.DrawRectangle(&pen,x,top,size,size*.68f);
-    SolidBrush bg(Color(255,68,49,80));g.FillRectangle(&bg,x-2,top+size*.36f,size*.55f,size*.4f);
-    if(cast){for(int i=1;i<=3;++i)g.DrawArc(&pen,x-size*.04f,top+size*.72f-size*.36f*i,size*.72f*i,size*.72f*i,270,90);}
-    else {PointF points[]{PointF(x+size*.25f,top+size*.83f),PointF(x+size*.55f,top+size*.34f),PointF(x+size*.85f,top+size*.83f)};SolidBrush b(Color(255,221,190,240));g.FillPolygon(&b,points,3);}
+    const auto module=GetModuleHandleW(nullptr);
+    const auto resource=FindResourceW(module,MAKEINTRESOURCEW(cast?202:201),RT_RCDATA);
+    if(!resource)return;
+    const DWORD bytes=SizeofResource(module,resource);
+    const auto data=LockResource(LoadResource(module,resource));if(!data||!bytes)return;
+    HGLOBAL memory=GlobalAlloc(GMEM_MOVEABLE,bytes);if(!memory)return;
+    void* copy=GlobalLock(memory);if(!copy){GlobalFree(memory);return;}
+    memcpy(copy,data,bytes);GlobalUnlock(memory);
+    IStream* stream{};
+    if(FAILED(CreateStreamOnHGlobal(memory,TRUE,&stream))){GlobalFree(memory);return;}
+    {
+        // GDI+ retains its stream while decoding. Both are scoped to this draw,
+        // with the image destroyed first, before app/test GDI+ shutdown.
+        Image image(stream);
+        if(image.GetLastStatus()==Ok){
+            const auto saved=g.Save();g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+            g.DrawImage(&image,RectF(x,top,size,size));g.Restore(saved);
+        }
+    }
+    stream->Release();
 }
 inline void place(int i,float x,float top,float width,float height){MoveWindow(buttons[i],int(x*scale),int(top*scale),int(width*scale),int(height*scale),TRUE);}
 inline void layout(HWND hwnd){
