@@ -17,7 +17,7 @@ inline std::vector<BYTE> preview,source;
 inline RectF previewRect,imageRect,cropRect(0,0,1,1);
 inline Color ink(255,241,228,250),muted(255,177,164,196),border(255,68,63,79);
 inline float y(float value){return 114+(value-114)*vertical;}
-inline void path(GraphicsPath& p,RectF r,float diameter=18){
+inline void path(GraphicsPath& p,RectF r,float diameter=28){
     diameter=(std::min)(diameter,(std::min)(r.Width,r.Height));
     p.AddArc(r.X,r.Y,diameter,diameter,180,90);p.AddArc(r.GetRight()-diameter,r.Y,diameter,diameter,270,90);
     p.AddArc(r.GetRight()-diameter,r.GetBottom()-diameter,diameter,diameter,0,90);p.AddArc(r.X,r.GetBottom()-diameter,diameter,diameter,90,90);p.CloseFigure();
@@ -25,7 +25,7 @@ inline void path(GraphicsPath& p,RectF r,float diameter=18){
 inline void rounded(Graphics& g,RectF r,Color color,bool outline=false,Color stroke=border){GraphicsPath p;path(p,r);SolidBrush b(color);g.FillPath(&b,&p);if(outline){Pen pen(stroke);g.DrawPath(&pen,&p);}}
 inline void text(Graphics& g,const wchar_t* value,float x,float top,float width,float height,float size=15,bool bold=false,Color color=ink,bool center=false){
     Font font(L"Segoe UI",size,bold?FontStyleBold:FontStyleRegular,UnitPixel);SolidBrush brush(color);StringFormat f;
-    f.SetTrimming(StringTrimmingEllipsisWord);f.SetFormatFlags(StringFormatFlagsLineLimit);if(center)f.SetAlignment(StringAlignmentCenter);
+    f.SetTrimming(StringTrimmingEllipsisWord);if(center)f.SetAlignment(StringAlignmentCenter);
     g.DrawString(value,-1,&font,RectF(x,top,width,height),&f,&brush);
 }
 inline void monitor(Graphics& g,float x,float top,float size){
@@ -53,6 +53,12 @@ inline void sourceIcon(Graphics& g,float x,float top,float size,bool cast){
     }
     stream->Release();
 }
+inline void optionIcon(Graphics& g,float x,float top,int kind){
+    Pen pen(muted,2.1f);pen.SetLineJoin(LineJoinRound);
+    if(kind==0){pen.SetDashStyle(DashStyleDash);g.DrawRectangle(&pen,x,top,16,16);}
+    else if(kind==1){g.DrawRectangle(&pen,x,top,16,16);g.DrawLine(&pen,x+5.33f,top,x+5.33f,top+16);g.DrawLine(&pen,x+10.67f,top,x+10.67f,top+16);g.DrawLine(&pen,x,top+5.33f,x+16,top+5.33f);g.DrawLine(&pen,x,top+10.67f,x+16,top+10.67f);}
+    else {g.DrawLine(&pen,x,top+8,x+17,top+8);g.DrawLine(&pen,x,top+8,x+5,top+3);g.DrawLine(&pen,x,top+8,x+5,top+13);g.DrawLine(&pen,x+17,top+8,x+12,top+3);g.DrawLine(&pen,x+17,top+8,x+12,top+13);}
+}
 inline void place(int i,float x,float top,float width,float height){MoveWindow(buttons[i],int(x*scale),int(top*scale),int(width*scale),int(height*scale),TRUE);}
 inline void layout(HWND hwnd){
     RECT r;GetClientRect(hwnd,&r);float dpi=GetDpiForWindow(hwnd)/96.f;
@@ -76,7 +82,7 @@ inline void paint(HWND hwnd,HDC dc){
     g.SetSmoothingMode(SmoothingModeAntiAlias);g.Clear(Color(255,25,24,34));g.ScaleTransform(scale,scale);g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
     float width=r.right/scale,height=r.bottom/scale,right=width-rightStart,inner=rightStart+16,input=18+sidebar*.29f;
     SolidBrush top(Color(255,33,31,44));g.FillRectangle(&top,0.f,0.f,width,96.f);
-    text(g,L"Kagami · 鏡",88,19,300,36,28,true);text(g,L"Phone screen → Virtual Camera",89,56,330,26,15,false,muted);
+    text(g,L"Kagami · 鏡",88,16,300,40,26,true);text(g,L"Phone screen → Virtual Camera",89,56,330,26,15,false,muted);
     auto panel=[&](float top,float h,Color c){rounded(g,RectF(18,y(top),sidebar,h*vertical),c,true);};
     panel(114,216,Color(255,33,32,43));text(g,L"Connection Source",34,y(128),sidebar-32,28,20,true);
     panel(346,104,Color(255,51,48,62));
@@ -106,8 +112,8 @@ inline void paint(HWND hwnd,HDC dc){
     if(guide){Pen line(Color(160,240,220,250));for(int i=1;i<3;++i){float x=imageRect.X+imageRect.Width*i/3,top=imageRect.Y+imageRect.Height*i/3;g.DrawLine(&line,x,imageRect.Y,x,imageRect.GetBottom());g.DrawLine(&line,imageRect.X,top,imageRect.GetRight(),top);}}
     if(safe){Pen line(Color(200,240,220,250));line.SetDashStyle(DashStyleDash);g.DrawRectangle(&line,imageRect.X+imageRect.Width*.05f,imageRect.Y+imageRect.Height*.05f,imageRect.Width*.9f,imageRect.Height*.9f);}g.Restore(saved);
     rounded(g,RectF(rightStart,height-184,right-18,142),Color(255,33,32,43),true);text(g,L"How to Use",inner,height-171,300,26,20,true);
-    float column=(right-58)/3;const wchar_t* headings[]{L"Start AirPlay / Smart View",L"Adjust Crop (Optional)",L"Use in OBS / Apps"};const wchar_t* descriptions[]{L"Enable camera, then Start. Mirror your phone.",L"Drag to crop. Framing controls: rotate, mirror and presets.",L"Select Kagami in apps. Wireless audio uses Desktop Audio."};
-    for(int i=0;i<3;++i){float x=inner+i*column;SolidBrush step(i==0?Color(255,89,81,255):i==1?Color(255,172,69,235):Color(255,230,87,218));g.FillEllipse(&step,x,height-139,34.f,34.f);wchar_t n[]{wchar_t(L'1'+i),0};text(g,n,x,height-137,34,32,22,true,ink,true);if(i==0)sourceIcon(g,x+54,height-133,28,false);else monitor(g,x+54,height-134,28);text(g,headings[i],x,height-99,column-16,22,15,true);text(g,descriptions[i],x,height-78,column-16,34,13,false,muted);}
+    float column=(right-58)/3;const wchar_t* headings[]{L"Start AirPlay / Smart View",L"Adjust Crop (Optional)",L"Use in OBS / Apps"};const wchar_t* descriptions[]{L"Enable camera, then start mirroring your phone.",L"Drag to crop; use Framing controls to rotate or mirror.",L"Select Kagami in apps. Wireless audio uses Desktop Audio."};
+    for(int i=0;i<3;++i){float x=inner+i*column;SolidBrush step(i==0?Color(255,89,81,255):i==1?Color(255,172,69,235):Color(255,230,87,218));g.FillEllipse(&step,x,height-139,34.f,34.f);wchar_t n[]{wchar_t(L'1'+i),0};text(g,n,x,height-137,34,32,22,true,ink,true);if(i==0)sourceIcon(g,x+54,height-133,28,false);else monitor(g,x+54,height-134,28);text(g,headings[i],x,height-99,column-16,22,15,true);text(g,descriptions[i],x,height-78,column-16,32,13,false,muted);}
     Graphics screen(dc);screen.DrawImage(&buffer,0,0);HICON icon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(1));DrawIconEx(dc,int(26*scale),int(22*scale),icon,int(48*scale),int(48*scale),0,nullptr,DI_NORMAL);
 }
 inline void drawButton(DRAWITEMSTRUCT* item){
@@ -119,8 +125,8 @@ inline void drawButton(DRAWITEMSTRUCT* item){
         sourceIcon(g,16,10,40,cast);text(g,cast?L"Smart View":L"AirPlay",16,height-48,width-30,25,20,true);text(g,cast?L"Samsung / Android":L"iPhone / iPad / Mac",16,height-22,width-24,21,13,false,muted);
         Pen radio(ink);if(selected){SolidBrush dot(ink);g.FillEllipse(&dot,width-26,20.f,10.f,10.f);}else g.DrawEllipse(&radio,width-26,20.f,10.f,10.f);
     }else if(item->CtlID==105||item->CtlID==106||item->CtlID==110){
-        bool on=item->CtlID==105?guide:item->CtlID==106?safe:mirrored;const wchar_t* label=item->CtlID==105?L"Show Framing Guide":item->CtlID==106?L"Show Safe Area (OBS)":L"Mirror Preview / Output";
-        g.ScaleTransform(scale,scale);width/=scale;height/=scale;text(g,label,8,(height-24)/2,width-70,26,15);rounded(g,RectF(width-58,(height-28)/2,54,28),on?Color(255,162,81,250):Color(255,81,77,96));SolidBrush thumb(ink);g.FillEllipse(&thumb,width-(on?28.f:55.f),(height-22)/2,22.f,22.f);
+        bool on=item->CtlID==105?guide:item->CtlID==106?safe:mirrored;int kind=item->CtlID==105?0:item->CtlID==106?1:2;const wchar_t* label=item->CtlID==105?L"Show Framing Guide":item->CtlID==106?L"Show Safe Area (OBS)":L"Mirror Preview / Output";
+        g.ScaleTransform(scale,scale);width/=scale;height/=scale;optionIcon(g,8,(height-16)/2,kind);text(g,label,36,(height-24)/2,width-98,26,15);rounded(g,RectF(width-58,(height-26)/2,54,26),on?Color(255,162,81,250):Color(255,81,77,96));SolidBrush thumb(ink);g.FillEllipse(&thumb,width-(on?28.f:55.f),(height-20)/2,20.f,20.f);
     }else{
         Color color=disabled?Color(255,42,39,51):pressed?Color(255,113,55,160):item->CtlID==111?Color(255,168,75,237):Color(255,57,52,69);rounded(g,RectF(1,1,width-2,height-2),color,true);wchar_t label[128];GetWindowTextW(item->hwndItem,label,128);Font font(L"Segoe UI",14*scale,FontStyleRegular,UnitPixel);SolidBrush brush(disabled?Color(255,130,121,145):ink);StringFormat f;f.SetAlignment(StringAlignmentCenter);f.SetLineAlignment(StringAlignmentCenter);g.DrawString(label,-1,&font,RectF(0,0,width,height),&f,&brush);
     }
