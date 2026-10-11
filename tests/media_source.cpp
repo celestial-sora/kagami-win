@@ -34,6 +34,9 @@ static void exercise(IClassFactory* factory, unsigned mediaTypeIndex) {
     ComPtr<IMFActivate> activate; check(factory->CreateInstance(nullptr,IID_PPV_ARGS(&activate)),"create activate");
     check(activate->SetString(KAGAMI_PIPE_NAME,kagami::pipeName().c_str()),"set local pipe");
     ComPtr<IMFMediaSource> source; check(activate->ActivateObject(IID_PPV_ARGS(&source)),"activate actual DLL source");
+    ComPtr<IMFMediaSource> reopened; check(activate->ActivateObject(IID_PPV_ARGS(&reopened)),"reopen existing source");
+    if (reopened.Get() != source.Get()) { std::cerr<<"activation replaced a live source\n"; exit(1); }
+    reopened.Reset();
     ComPtr<IMFSampleAllocatorControl> control; check(source.As(&control),"allocator control");
     ComPtr<IMFVideoSampleAllocator> allocator; check(MFCreateVideoSampleAllocatorEx(IID_PPV_ARGS(&allocator)),"create allocator");
     check(control->SetDefaultAllocator(0,allocator.Get()),"supply allocator");

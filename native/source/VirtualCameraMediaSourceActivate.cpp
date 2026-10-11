@@ -10,7 +10,8 @@ namespace winrt::WindowsSample::implementation
     {
         RETURN_HR_IF_NULL(E_POINTER, ppv);
         *ppv = nullptr;
-
+        std::lock_guard guard(m_activationLock);
+        if (m_spSimpleMediaSrc) return m_spSimpleMediaSrc->QueryInterface(riid, ppv);
         m_spSimpleMediaSrc = winrt::make_self<SimpleMediaSource>();
         RETURN_IF_FAILED(m_spSimpleMediaSrc->Initialize(this));
         RETURN_IF_FAILED(m_spSimpleMediaSrc->QueryInterface(riid, ppv));
@@ -19,6 +20,7 @@ namespace winrt::WindowsSample::implementation
 
     IFACEMETHODIMP VirtualCameraMediaSourceActivate::ShutdownObject()
     {
+        std::lock_guard guard(m_activationLock);
         if (m_spSimpleMediaSrc) m_spSimpleMediaSrc->Shutdown();
         m_spSimpleMediaSrc = nullptr;
         return S_OK;
@@ -26,6 +28,7 @@ namespace winrt::WindowsSample::implementation
 
     IFACEMETHODIMP VirtualCameraMediaSourceActivate::DetachObject()
     {
+        std::lock_guard guard(m_activationLock);
         m_spSimpleMediaSrc = nullptr;
 
         return S_OK;

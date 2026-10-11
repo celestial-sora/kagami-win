@@ -6,4 +6,6 @@ Local Windows build 26300: Visual Studio 2022 Build Tools 17.14.41, Windows SDK 
 
 Automated checks compile the actual native media source/desktop executable and .exe installer. Bridge checks send complete synthetic BGRX frames through a real local named pipe, check exclusive ownership, initial slate, invalid sizes, disconnect clearing, reconnect and Stop without a consumer. These checks do not register a camera, elevate media, alter networking or record a screen.
 
+Feature CI [38116848655](https://github.com/celestial-sora/kagami-win/actions/runs/38116848655) passes at c7c7745, including actual DLL samples and EXE packaging on the Windows Server 2025 runner. Subsequent hardening reuses an existing activation rather than replacing a live source, tests Stop with a stalled consumer, and pins current Actions revisions. That final code must pass feature CI before main integration.
+
 Physical acceptance remains open: installed MF camera enumeration/negotiation in OBS and Discord; Windows privacy/FrameServer service access; setup/uninstall and upgrades; concurrent consumers; actual iPhone/iPad/Mac AirPlay; Galaxy Smart View; USB and authorized ADB Wi-Fi; desktop audio and AV sync; real output FPS/long-session latency. Native transports and framing are subsequent work.

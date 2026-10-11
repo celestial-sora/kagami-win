@@ -55,6 +55,7 @@ namespace winrt::WindowsSample::implementation
         HRESULT Initialize();
 
     private:
+        std::mutex m_activationLock;
         wil::com_ptr_nothrow <IMFAttributes> m_spActivateAttributes;
         winrt::com_ptr<winrt::WindowsSample::implementation::SimpleMediaSource> m_spSimpleMediaSrc;
     };

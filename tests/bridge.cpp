@@ -34,5 +34,10 @@ int main() {
     auto before=std::chrono::steady_clock::now();
     require(writer.start(),"start without consumer"); writer.stop();
     require(std::chrono::steady_clock::now()-before<std::chrono::seconds(2),"Stop cancels pending connection");
+    require(writer.start(),"start stalled consumer test");
+    HANDLE stalled=CreateFileW(kagami::pipeName().c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,0,nullptr);
+    require(stalled!=INVALID_HANDLE_VALUE,"connect consumer without reading"); Sleep(150);
+    before=std::chrono::steady_clock::now(); writer.stop(); CloseHandle(stalled);
+    require(std::chrono::steady_clock::now()-before<std::chrono::seconds(2),"Stop cancels stalled write");
     std::cout<<"PASS: protocol, exclusive ownership, named pipe frames, slate, disconnect, reconnect, bounded Stop\n";
 }
