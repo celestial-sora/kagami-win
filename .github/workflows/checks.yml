@@ -1,0 +1,26 @@
+name: Windows checks
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native source, desktop, IPC checks and setup EXE
+        shell: pwsh
+        run: ./tools/build.ps1 -Installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kagami-windows-development-${{ github.sha }}
+          path: |
+            dist/
+            build/SHA256SUMS
+          if-no-files-found: error

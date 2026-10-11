@@ -1,0 +1,4 @@
+LIBRARY KagamiCamera
+EXPORTS
+    DllGetClassObject
+    DllCanUnloadNow

@@ -1,0 +1,9 @@
+.local/
+build/
+dist/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+__pycache__/
