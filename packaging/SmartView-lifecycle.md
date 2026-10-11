@@ -1,18 +1,19 @@
 # Smart View companion lifecycle
 
-The EXE installer installs the camera DLL under protected Program Files. Its
-unchecked Smart View task additionally trusts this development build's public
-signing certificate during elevated setup, then registers the MSIX as the
-original unprivileged desktop user. Reception remains stopped.
+The EXE installer installs the camera DLL under protected Program Files and
+installs Smart View as a standard Kagami feature. Elevated setup trusts this
+development build's public signing certificate in machine `TrustedPeople`, then
+registers the MSIX as the original unprivileged desktop user. Reception remains
+stopped.
 
-Selecting that task during an upgrade calls `Add-AppxPackage` for the same exact
-package identity. It does not uninstall first, force a downgrade, or force a
-running Kagami/receiver to close. Close Kagami before installing an update. CI
-artifacts use increasing package versions; rebuilding an old or equal version
-may require a newer artifact rather than silently replacing the installed app.
+Setup calls `Add-AppxPackage` for the same exact package identity on install and
+upgrade. It does not uninstall first, force a downgrade, or force a running
+Kagami/receiver to close. Close Kagami before installing an update. CI artifacts
+use increasing package versions; rebuilding an old or equal version may require
+a newer artifact rather than silently replacing the installed app.
 
 Before removing the EXE installation, use the Start-menu shortcut **Remove
-Smart View companion (current user)** from the normal desktop account that
+Smart View receiver (current user)** from the normal desktop account that
 installed it. Alternatively, remove **Kagami Development Preview** from
 Windows Settings > Apps > Installed apps. The shortcut invokes
 `Install-SmartView.ps1 -Uninstall`; it selects only the exact Kagami development
@@ -37,3 +38,4 @@ building, signing, and packaging do not prove installed Smart View compatibility
 
 References: [Inno Setup ExecAsOriginalUser](https://jrsoftware.org/ishelp/topic_isxfunc_execasoriginaluser.htm),
 [Microsoft Remove-AppxPackage](https://learn.microsoft.com/en-us/powershell/module/appx/remove-appxpackage).
+

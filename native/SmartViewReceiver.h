@@ -24,7 +24,7 @@ public:
     }
     void start() {
         stop();auto family=packageFamily();
-        if(family.empty())throw winrt::hresult_error(E_FAIL,L"Install the optional Smart View companion from Kagami Setup, then reopen Kagami.");
+        if(family.empty())throw winrt::hresult_error(E_FAIL,L"Smart View receiver is missing. Repair Kagami Setup, then reopen Kagami.");
         auto desktopSid=userSid();
         if(desktopSid.empty())throw winrt::hresult_error(E_ACCESSDENIED,L"Cannot identify the desktop user for Smart View IPC.");
         GUID id{};winrt::check_hresult(CoCreateGuid(&id));wchar_t guid[40]{};StringFromGUID2(id,guid,40);
@@ -75,3 +75,4 @@ public:
     }
 };
 }
+

@@ -47,6 +47,16 @@ static HRESULT openCamera() {
     return MFCreateVirtualCamera(MFVirtualCameraType_SoftwareCameraSource, MFVirtualCameraLifetime_System,
         MFVirtualCameraAccess_CurrentUser, L"Kagami", L"{542A79E7-54AC-48F9-B948-4620292BCC85}", nullptr, 0, &camera);
 }
+static HRESULT enableCamera() {
+    HRESULT hr = openCamera();
+    if (SUCCEEDED(hr)) hr = camera->SetString(KAGAMI_PIPE_NAME, kagami::pipeName().c_str());
+    if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_WIDTH,ui::format.width);
+    if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_HEIGHT,ui::format.height);
+    if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_FPS,ui::format.fps);
+    if (SUCCEEDED(hr)) hr = camera->Start(nullptr);
+    ui::enabled = SUCCEEDED(hr);
+    return hr;
+}
 static void report(HRESULT hr, const wchar_t* success) {
     if (SUCCEEDED(hr)) setStatus(success);
     else { wchar_t message[300]; swprintf_s(message, L"Operation failed (0x%08X). Install Kagami Setup, and check Windows camera privacy settings.", static_cast<unsigned>(hr)); setStatus(message); }
@@ -56,12 +66,14 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     case WM_CREATE: {
         host=hwnd; framingControls::load();
         dialogStyle::title(hwnd);
-        const wchar_t* labels[]{L"Enable camera", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
+        const wchar_t* labels[]{L"Camera On", L"Test pattern", L"Stop", L"Remove camera", L"Framing controls", L"Framing guide: Off", L"Safe area: Off",L"Show virtual camera output",L"USB / ADB Wi-Fi setup",L"Mirror output: Off",L"Start AirPlay",L"Smart View",L"Change format",L"AirPlay"};
         for (int i=0;i<14;++i) ui::buttons[i]=CreateWindowW(L"BUTTON",labels[i],WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(INT_PTR(i==13?115:i>=9?101+i:100+i)),nullptr,nullptr);
         syncCrop();
         SetWindowTextW(ui::buttons[5],ui::guide?L"Framing guide: On":L"Framing guide: Off");
         SetWindowTextW(ui::buttons[6],ui::safe?L"Safe area: On":L"Safe area: Off");
         ui::buttons[14]=CreateWindowW(L"BUTTON",L"Check",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_OWNERDRAW,0,0,0,0,hwnd,reinterpret_cast<HMENU>(117),nullptr,nullptr);
+        HRESULT hr = enableCamera();
+        report(hr, L"Camera is on. Output is black until you start receiving.");
         ui::refresh(hwnd); return 0;
     }
     case WM_SIZE: ui::refresh(hwnd); return 0;
@@ -99,15 +111,18 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
     }
     case WM_COMMAND:
         if (LOWORD(w) == 100) {
-            HRESULT hr = openCamera();
-            if (SUCCEEDED(hr)) hr = camera->SetString(KAGAMI_PIPE_NAME, kagami::pipeName().c_str());
-            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_WIDTH,ui::format.width);
-            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_HEIGHT,ui::format.height);
-            if (SUCCEEDED(hr)) hr = camera->SetUINT32(KAGAMI_OUTPUT_FPS,ui::format.fps);
-            if (SUCCEEDED(hr)) hr = camera->Start(nullptr);
-            ui::enabled = SUCCEEDED(hr); report(hr, L"Camera enabled. Waiting output is black.");
+            if (ui::enabled) {
+                if (MessageBoxW(hwnd,L"Turn off the Kagami virtual camera? Any active phone session will stop and the camera output will clear.",L"Turn off camera?",MB_YESNO|MB_ICONWARNING|MB_DEFBUTTON2)!=IDYES) return 0;
+                stopMedia(hwnd);
+                HRESULT hr = camera ? camera->Stop() : S_OK;
+                if (SUCCEEDED(hr)) ui::enabled=false;
+                report(hr,L"Camera is off. Turn it on again whenever you need it.");
+            } else {
+                HRESULT hr=enableCamera();
+                report(hr,L"Camera is on. Output is black until you start receiving.");
+            }
         } else if (LOWORD(w) == 101) {
-            if (!ui::enabled) { setStatus(L"Enable the Kagami camera first."); return 0; }
+            if (!ui::enabled) { setStatus(L"Turn Camera On first."); return 0; }
             if (!writer.start()) { setStatus(L"Cannot own the Kagami output. Close the other Kagami producer first."); return 0; }
             tick = 0;
             if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr)) {writer.stop();setStatus(L"Cannot start the preview timer.");return 0;}
@@ -131,7 +146,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         } else if (LOWORD(w) == 108) {
             connectionControls::show(hwnd);
         } else if (LOWORD(w) == 109) {
-            if(!ui::enabled||ui::running) {setStatus(L"Enable the camera and stop the current session first.");return 0;}
+            if(!ui::enabled||ui::running) {setStatus(L"Turn Camera On and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
                 android.start(connectionControls::selected,ui::format.fps);
@@ -144,7 +159,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             framingControls::value.mirror=!framingControls::value.mirror;framingControls::save();syncCrop();
         } else if(LOWORD(w)==111) {
             if(ui::selectedSource==1){SendMessageW(hwnd,WM_COMMAND,116,0);return 0;}
-            if(!ui::enabled||ui::running){setStatus(L"Enable the Kagami camera and stop the current session first.");return 0;}
+            if(!ui::enabled||ui::running){setStatus(L"Turn Camera On and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
                 airplay.start();if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
@@ -152,7 +167,7 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
             }catch(const winrt::hresult_error& error){stopMedia(hwnd);setStatus(error.message().c_str());}
             catch(...){stopMedia(hwnd);setStatus(L"Cannot start the AirPlay receiver.");}
         } else if(LOWORD(w)==116) {
-            if(!ui::enabled||ui::running){setStatus(L"Enable the camera and stop the current session first.");return 0;}
+            if(!ui::enabled||ui::running){setStatus(L"Turn Camera On and stop the current session first.");return 0;}
             try {
                 if(!writer.start()){setStatus(L"Another Kagami producer owns the camera output.");return 0;}
                 smartview.start();if(!SetTimer(hwnd,1,(std::max)(1u,1000/ui::format.fps),nullptr))throw winrt::hresult_error(E_FAIL);
@@ -164,10 +179,10 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM w, LPARAM l) 
         } else if(LOWORD(w)==117) {
             kagami::showDiagnostics(hwnd);
         } else if(LOWORD(w)==114) {
-            setStatus(L"Output format saved. Enable the Kagami camera, then reopen your camera app.");
+            setStatus(L"Output format saved. Turn Camera On, then reopen your camera app.");
         } else if(LOWORD(w)==112||LOWORD(w)==115) {
             if(ui::running)return 0;ui::selectedSource=LOWORD(w)==112?1:0;framingControls::save();
-            setStatus(ui::selectedSource==1?L"Smart View selected. Enable camera, then Start Smart View.":L"AirPlay selected. Enable camera, then Start AirPlay.");
+            setStatus(ui::selectedSource==1?L"Smart View selected. Start Smart View when your phone is ready.":L"AirPlay selected. Start AirPlay when your phone is ready.");
         }
         ui::refresh(hwnd); return 0;
     case WM_TIMER: {
@@ -254,3 +269,4 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR args, int show) {
     while (GetMessageW(&msg,nullptr,0,0)>0) { if (!(outputControls::window&&IsDialogMessageW(outputControls::window,&msg))&&!(connectionControls::window&&IsDialogMessageW(connectionControls::window,&msg))&&!(framingControls::window&&IsDialogMessageW(framingControls::window,&msg))&&!IsDialogMessageW(hwnd,&msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
     MFShutdown(); RoUninitialize(); return static_cast<int>(msg.wParam);
 }
+

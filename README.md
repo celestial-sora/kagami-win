@@ -2,15 +2,15 @@
 
 Native Windows port of [Kagami](https://github.com/celestial-sora/kagami), targeting **Windows 11 x64**. This development preview adds the reference desktop UI, phone receiver integrations, framing and selectable camera output. Real phone, installed camera and desktop audio acceptance remains pending; see [validation](docs/validation.md) and the [feature comparison](docs/feature-parity.md).
 
-The main window contains transport selection, Start/Stop, connection status, source and virtual camera previews, framing controls, preview guides and output settings. Capture never starts on installation, launch or preference restore. Frames remain in memory; Kagami makes no frame/audio recordings and requires no cloud account, browser/URL/QR pairing or Android Kagami app.
+The main window contains transport selection, Start/Stop, connection status, source and virtual camera previews, framing controls, preview guides and output settings. Setup never enables or starts media. On normal app launch Kagami enables its virtual camera by default, with a black output until you explicitly start a receiver; the camera toggle asks before shutting down an active session. Capture state never restores across launches. Frames remain in memory; Kagami makes no frame/audio recordings and requires no cloud account, browser/URL/QR pairing or Android Kagami app.
 
 ## Install and try
 
 Use the setup EXE from a successful [feature CI run](https://github.com/celestial-sora/kagami-win/actions/workflows/checks.yml). Artifacts are development builds, not stable releases. `winget install celestial-sora.Kagami` is the intended distribution command but **is not available in the public catalog yet**; see [WinGet distribution](docs/winget.md).
 
-Setup elevates to install/register the fixed native DLL under Program Files and rejects a custom `/DIR` override. Desktop/media run as the normal user. Optional OBS, Android dependency and Smart View tasks are unchecked. Installation never enables the camera or starts mirroring. Local preferences and framing presets are retained.
+Setup elevates to install/register the fixed native DLL under Program Files and rejects a custom `/DIR` override. Desktop/media run as the normal user. The Smart View receiver is installed automatically as a Kagami feature; only OBS and Android dependencies remain optional setup tasks. Installation never enables the camera or starts mirroring. Local preferences and framing presets are retained.
 
-1. Open Kagami normally and click **Enable camera**.
+1. Open Kagami normally; its virtual camera is enabled automatically and remains black until a receiver starts.
 2. Select a transport and start it explicitly. Connect using the instructions below.
 3. Drag the source preview to crop, or open **Framing controls** for aspect, rotation, mirror, fit/fill and named presets. Toggle framing/safe-area guides as needed.
 4. Select **Kagami Windows Virtual Camera** in your camera application. Installed OBS/Discord operation remains an acceptance check.
@@ -21,16 +21,16 @@ Setup elevates to install/register the fixed native DLL under Program Files and 
 | Transport | Preparation | Current limitation |
 | :-- | :-- | :-- |
 | AirPlay | Start AirPlay, then select Kagami in Apple Screen Mirroring on the same local network. | Owned UxPlay and WASAPI desktop audio are integrated; Apple devices and AV sync need testing. Keep the receiver window open. |
-| Smart View | Select the optional Smart View setup task, reopen Kagami, select Smart View and Start. The PC needs Windows Miracast receiver support. | Reception uses a packaged companion window. Controls and processed preview remain in Kagami; keep the companion open. Galaxy reception and package activation need testing. |
+| Smart View | Reopen Kagami after setup, select Smart View and Start. The PC needs Windows Miracast receiver support. | Reception uses a packaged companion window installed with Kagami. Controls and processed preview remain in Kagami; keep the companion open. Galaxy reception and package activation need testing. |
 | USB / ADB Wi-Fi | Install scrcpy 4.0+ and ADB, enable debugging, authorize the PC on the phone, then open USB / ADB setup and refresh devices. | Wireless debugging requires explicit Pair using its pairing port/code, then Connect using its separate debugging port. Select that authorized device. Kagami accepts private IP endpoints and saves no addresses/codes. Android audio is disabled. |
 
 Select setup's optional Android dependency task to install `Genymobile.scrcpy` through winget, or run `winget install --id Genymobile.scrcpy --exact --source winget` separately. Verify scrcpy 4.0+ and restart Kagami after installation. ADB itself manages Android authorization independently of Kagami.
 
-The optional Smart View task explicitly trusts the shipped **public development signing leaf certificate** in machine `TrustedPeople`, then installs the MSIX for the normal desktop user. It does not add a root certificate. Each build uses an ephemeral signing key, deletes that private key after signing, and ships only the public certificate. Stable release signing is separate. Before uninstalling the EXE, use **Remove Smart View companion (current user)** from the normal desktop account, or remove the package in Windows Settings. EXE uninstall does not automatically remove another user context's registration; the development certificate remains. See [companion lifecycle](packaging/SmartView-lifecycle.md) for cleanup/upgrade details. Installed lifecycle acceptance is pending.
+Setup explicitly trusts the shipped **public development signing leaf certificate** in machine `TrustedPeople`, then installs the Smart View MSIX for the normal desktop user as part of Kagami installation. It does not add a root certificate. Each build uses an ephemeral signing key, deletes that private key after signing, and ships only the public certificate. Stable release signing is separate. Before uninstalling the EXE, use **Remove Smart View receiver (current user)** from the normal desktop account, or remove the package in Windows Settings. EXE uninstall does not automatically remove another user context's registration; the development certificate remains. See [receiver lifecycle](packaging/SmartView-lifecycle.md) for cleanup/upgrade details. Installed lifecycle acceptance is pending.
 
 ## Output format and audio
 
-Output offers seven common presets plus custom numeric dimensions: even width 320–1920, even height 240–1920, and no more than 2,073,600 pixels total. Target rates are 15/24/30/60 FPS. Apply changes with **Remove camera → Change format → Enable camera → reopen the consumer**. The source advertises RGB32 and NV12 at the selected dimensions/rate. Input is normalized to 1280×720, so larger outputs upscale that canvas. A 60 FPS output does not guarantee 60 distinct received phone frames per second.
+Output offers seven common presets plus custom numeric dimensions: even width 320–1920, even height 240–1920, and no more than 2,073,600 pixels total. Target rates are 15/24/30/60 FPS. Apply changes with **Remove camera → Change format → Camera On → reopen the consumer**. The source advertises RGB32 and NV12 at the selected dimensions/rate. Input is normalized to 1280×720, so larger outputs upscale that canvas. A 60 FPS output does not guarantee 60 distinct received phone frames per second.
 
 AirPlay audio uses Windows desktop output; Smart View delegates playback to Windows MediaPlayer. These routes are intended for desktop-audio capture in apps such as OBS and create no separate Kagami audio device. Actual sound, routing and AV sync remain unverified.
 
@@ -55,3 +55,4 @@ The source derives from Microsoft's MIT-licensed Windows-Camera sample at `626f8
 Changes publish to a feature branch, pass CI, then integrate main once without a PR. Stable releases require separate guarded main CI approval. See [handoff](docs/handoff.md) for boundaries and open work.
 
 Maintainer: **celestial-sora**. Contributor: **celestail-sora**.
+

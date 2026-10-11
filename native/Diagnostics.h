@@ -16,8 +16,9 @@ inline void showDiagnostics(HWND parent) {
     HKEY key{};auto registered=RegOpenKeyExW(HKEY_LOCAL_MACHINE,L"SOFTWARE\\Classes\\CLSID\\{542A79E7-54AC-48F9-B948-4620292BCC85}\\InprocServer32",0,KEY_QUERY_VALUE|KEY_WOW64_64KEY,&key)==ERROR_SUCCESS;
     if(key)RegCloseKey(key);
     report+=registered?L"Kagami camera source: registered\n":L"Kagami camera source: missing — reinstall Kagami Setup\n";
-    report+=packageFamily().empty()?L"Smart View package context: absent — install the optional companion\n":L"Smart View package context: present\n";
+    report+=packageFamily().empty()?L"Smart View package context: absent — repair Kagami Setup\n":L"Smart View package context: present\n";
     report+=L"\nReception checks:\n• AirPlay: phone and PC must share the local network; allow Kagami when Windows asks about firewall access.\n• Smart View: Windows Wireless Display and compatible Wi-Fi drivers/hardware are required; Start reports receiver capability errors.\n• Android: unlock the device and explicitly authorize ADB; Refresh in USB / ADB setup lists authorized devices.\n• Camera apps: permit desktop camera access in Windows Settings and select Kagami. After changing format, reopen the camera app.\n\nThese checks do not start reception or confirm phone/audio/app compatibility.";
     MessageBoxW(parent,report.c_str(),L"Kagami · Check setup",MB_OK|MB_ICONINFORMATION);
 }
 }
+

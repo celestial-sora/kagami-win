@@ -27,8 +27,8 @@ These checks do not register a camera, alter host networking, enable reception o
 
 ## Required physical and interactive acceptance
 
-- Install the EXE on a normal Windows 11 x64 desktop, verify fixed Program Files camera registration, unelevated launch, stopped initial state, preferences retained across upgrade and uninstall behavior.
-- Explicitly select the optional Smart View task; verify leaf certificate TrustedPeople scope, per-user MSIX activation, packaged main UI, unsupported-hardware messages and no automatic receiver start. Test the normal-user companion removal shortcut before EXE uninstall, separate user registrations, upgrades and retained preferences/certificates using the [lifecycle guide](../packaging/SmartView-lifecycle.md).
+- Install the EXE on a normal Windows 11 x64 desktop, verify fixed Program Files camera registration, unelevated launch, camera enabled with black output but no receiver started, preferences retained across upgrade and uninstall behavior.
+- Verify Smart View is installed automatically with setup: leaf certificate TrustedPeople scope, per-user MSIX activation, packaged main UI, unsupported-hardware messages and no automatic receiver start. Test the normal-user receiver removal shortcut before EXE uninstall, separate user registrations, upgrades and retained preferences/certificates using the [lifecycle guide](../packaging/SmartView-lifecycle.md).
 - Enable Kagami and enumerate/negotiate it in OBS and Discord. Check FrameServer service access, RGB32/NV12 formats, landscape/portrait/square changes after remove/re-enable/reopen and concurrent consumers.
 - Exercise real iPhone/iPad/Mac AirPlay, Galaxy Smart View and authorized Android USB/wireless debugging. Check pairing cancellation, renderer/companion close/minimize, main-app Stop/close/crash, producer EOF, reconnect requiring explicit Start, and black cleared camera output.
 - Confirm AirPlay WASAPI and Smart View MediaPlayer desktop sound, OBS Desktop Audio routing, AV sync, mute/failure handling and no surviving child audio after Stop.
@@ -44,3 +44,4 @@ Earlier foundation checks on Windows build 26300 compiled with Visual Studio 202
 Interactive launch investigation found UAC disabled (`EnableLUA=0`) and an elevated Explorer. Setup's `runasoriginaluser` cannot create an unprivileged media process from that desktop. The launch helper checks Explorer elevation and refuses that case. The maintainer authorized enabling UAC; a restarted normal desktop is needed for acceptance. `tools/Test-DesktopLaunch.ps1` is an explicit interactive token check, not headless CI.
 
 Previous three-file WinGet candidate validation succeeded locally with WinGet 1.11.510. Artifact URLs, mutable latest-download URLs and HTTP URLs are rejected by manifest generation. Public release download verification, submission and installer acceptance remain pending.
+

@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 if ($TrustDevelopmentCertificate -and $Uninstall) { throw 'Certificate trust and per-user removal are separate operations.' }
 $certificate = Join-Path $PSScriptRoot 'Kagami-Development.cer'
 if ($TrustDevelopmentCertificate) {
-    # Elevated setup invokes this only after the unchecked task is selected.
+    # Elevated setup trusts the leaf needed to install the bundled Smart View feature.
     $leaf = [Security.Cryptography.X509Certificates.X509Certificate2]::new($certificate)
     if ($leaf.Subject -ne 'CN=Kagami Development Preview' -or $leaf.NotAfter -lt (Get-Date)) { throw 'Unexpected or expired development signing certificate.' }
     Import-Certificate -FilePath $certificate -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
@@ -34,3 +34,4 @@ if ($Uninstall) {
 # A running app or non-newer artifact must be resolved explicitly by the user.
 Add-AppxPackage -Path (Join-Path $PSScriptRoot 'Kagami-SmartView.msix')
 Write-Host 'Smart View companion installed. Open Kagami; reception remains stopped.'
+

@@ -31,7 +31,7 @@ inline LRESULT CALLBACK proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
         SendMessageW(dimensions,CB_SETCURSEL,_countof(sizes),0);return 0;
     }
     if(message==WM_COMMAND&&LOWORD(w)==401){
-        if(ui::enabled||ui::running){MessageBoxW(hwnd,L"Remove the Kagami camera first, then change its output format and Enable camera again.",L"Camera format",MB_ICONINFORMATION);return 0;}
+        if(ui::enabled||ui::running){MessageBoxW(hwnd,L"Remove the Kagami camera first, then change its output format and turn Camera On again.",L"Camera format",MB_ICONINFORMATION);return 0;}
         const auto fps=SendMessageW(rate,CB_GETCURSEL,0,0);kagami::OutputFormat next;
         if(!readDimension(widthField,next.width)||!readDimension(heightField,next.height)||fps<0||fps>=_countof(rates)){
             MessageBoxW(hwnd,L"Enter whole-number pixel dimensions and select a frame rate.",L"Camera format",MB_ICONWARNING);return 0;
@@ -69,3 +69,4 @@ inline void show(HWND parent){
     SetWindowPos(window,nullptr,0,0,int(550*dpi),int(420*dpi),SWP_NOMOVE|SWP_NOZORDER);ShowWindow(window,SW_SHOW);
 }
 }
+

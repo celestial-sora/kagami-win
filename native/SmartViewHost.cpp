@@ -100,7 +100,20 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
             if(status.WiFiStatus()==MiracastReceiverWiFiStatus::MiracastNotSupported)throw hresult_error(E_NOTIMPL,L"This Wi-Fi adapter does not support Miracast reception.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::DisabledByPolicy)throw hresult_error(E_ACCESSDENIED,L"Smart View reception is disabled by Windows administrative policy.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::TemporarilyDisabled)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY),L"Smart View is temporarily unavailable while other Wi-Fi activity is in progress.");
-            auto settings=co_await receiver.GetCurrentSettingsAsync();if(cancelled())co_return;
+            auto settings=receiver.GetDefaultSettings();
+            settings.FriendlyName(L"Kagami");
+            settings.ModelName(L"Kagami Smart View Receiver");
+            settings.ModelNumber(L"1");
+            auto applied=co_await receiver.DisconnectAllAndApplySettingsAsync(settings);if(cancelled())co_return;
+            if(applied.Status()==MiracastReceiverApplySettingsStatus::Success) {
+                settings=co_await receiver.GetCurrentSettingsAsync();if(cancelled())co_return;
+            } else if(applied.Status()==MiracastReceiverApplySettingsStatus::AccessDenied) {
+                // Windows may own receiver settings when Wireless Display is enabled
+                // in Settings. Keep the OS configuration and use its existing name.
+                settings=co_await receiver.GetCurrentSettingsAsync();if(cancelled())co_return;
+            } else {
+                throw hresult_error(E_FAIL,L"Windows could not apply the Kagami receiver name. Check Wireless Display support.");
+            }
             notify(kagami::smart::State::Listening,L"Starting Windows Smart View receiver...");
             auto newSession=co_await receiver.CreateSessionAsync(view);if(cancelled()){newSession.Close();co_return;}session=newSession;
             session.MaxSimultaneousConnections(1);session.AllowConnectionTakeover(false);
@@ -128,13 +141,23 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
                 }
             });
             auto result=co_await session.StartAsync();if(cancelled())co_return;
-            if(unsigned(result.Status())!=0)throw hresult_error(E_FAIL,L"Windows could not start Smart View. Check Wireless Display and Wi-Fi Direct support.");
+            if(result.Status()!=MiracastReceiverSessionStartStatus::Success) {
+                HRESULT error=result.ExtendedError();
+                const wchar_t* detail=result.Status()==MiracastReceiverSessionStartStatus::AccessDenied?
+                    L"Windows denied the Smart View receiver. Repair Kagami Setup and check Windows Wireless Display permissions.":
+                    result.Status()==MiracastReceiverSessionStartStatus::MiracastNotSupported?
+                    L"This PC or Wi-Fi adapter does not support Miracast reception.":
+                    L"Windows could not start Smart View. Check Wireless Display and Wi-Fi Direct support.";
+                throw hresult_error(FAILED(error)?error:E_FAIL,detail);
+            }
             status=co_await receiver.GetStatusAsync();if(cancelled())co_return;
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::DisabledByPolicy)throw hresult_error(E_ACCESSDENIED,L"Smart View reception is disabled by Windows administrative policy.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::TemporarilyDisabled)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY),L"Smart View is temporarily unavailable while other Wi-Fi activity is in progress.");
+            if(status.ListeningStatus()==MiracastReceiverListeningStatus::NotListening)
+                throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_READY),L"Windows started Kagami but is not listening, so phones cannot see it yet. Check that Windows Wireless Display is available and run NETSH WLAN SHOW DRIVER to verify Wireless Display Supported: Yes.");
             std::lock_guard guard(lock);
             if(packet.state==kagami::smart::State::Listening) {
-                auto detail=status.ListeningStatus()==MiracastReceiverListeningStatus::NotListening?L"Windows receiver started; waiting for listening status.":L"Smart View: select "+std::wstring(settings.FriendlyName());
+                auto detail=L"Smart View is visible as "+std::wstring(settings.FriendlyName());
                 wcsncpy_s(packet.detail,detail.c_str(),_TRUNCATE);
             }
         }catch(hresult_error const& e){
@@ -184,3 +207,4 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {
     try{init_apartment(apartment_type::single_threaded);CoreApplication::Run(make<ReceiverApp>());return 0;}catch(...){return 2;}
 }
+
