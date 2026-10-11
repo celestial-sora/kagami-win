@@ -56,6 +56,8 @@ Invoke-Checked cl ($common + @('tests/framing.cpp','/Fe:build/framing-tests.exe'
 Invoke-Checked (Join-Path $taskRoot 'build/framing-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/smartview_protocol.cpp','/Fe:build/smartview-protocol-tests.exe','/link','advapi32.lib'))
 Invoke-Checked (Join-Path $taskRoot 'build/smartview-protocol-tests.exe') @()
+Invoke-Checked cl ($common + @('tests/adb_validation.cpp','/Fe:build/adb-validation-tests.exe','/link','windowsapp.lib','advapi32.lib'))
+Invoke-Checked (Join-Path $taskRoot 'build/adb-validation-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/ui_layout.cpp','build/app.res','/Fe:build/ui-layout-tests.exe','/link','user32.lib','gdi32.lib','advapi32.lib'))
 Invoke-Checked (Join-Path $taskRoot 'build/ui-layout-tests.exe') @()
 Invoke-Checked cl ($common + @('tests/bridge.cpp','/Fe:build/bridge-tests.exe','/link','advapi32.lib'))

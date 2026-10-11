@@ -1,4 +1,6 @@
 #pragma once
+#include <windows.h>
+#include <winrt/base.h>
 #include <algorithm>
 #include <atomic>
 #include <string>
@@ -27,8 +29,10 @@ inline bool validAdbEndpoint(const std::wstring& target) {
         ip=ip.substr(1,ip.size()-2);if(ip.empty()||ip.find_first_not_of(L"0123456789abcdefABCDEF:")!=std::wstring::npos)return false;
         // ULA and link-local only; reject malformed compressed/group counts.
         std::wstring lower=ip;for(auto& c:lower)if(c>=L'A'&&c<=L'F')c+=L'a'-L'A';
-        bool local=lower.starts_with(L"fc")||lower.starts_with(L"fd")||lower.starts_with(L"fe8")||lower.starts_with(L"fe9")||lower.starts_with(L"fea")||lower.starts_with(L"feb");
-        if(!local)return false;
+        auto firstEnd=lower.find(L':');if(firstEnd==std::wstring::npos||firstEnd>4)return false;
+        unsigned first=0;for(size_t j=0;j<firstEnd;++j)first=first*16+(lower[j]<=L'9'?lower[j]-L'0':lower[j]-L'a'+10);
+        if((first&0xfe00)!=0xfc00&&(first&0xffc0)!=0xfe80)return false;
+        if(ip.back()==L':'&&!ip.ends_with(L"::"))return false;
         auto compressed=ip.find(L"::");if(compressed!=std::wstring::npos&&ip.find(L"::",compressed+2)!=std::wstring::npos)return false;
         unsigned groups=0;size_t pos=0;
         while(pos<ip.size()){if(ip[pos]==L':'){++pos;continue;}auto end=ip.find(L':',pos);if(end==std::wstring::npos)end=ip.size();if(end-pos>4)return false;++groups;pos=end;}

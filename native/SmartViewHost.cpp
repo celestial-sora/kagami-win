@@ -29,6 +29,7 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
     ComPtr<ID3D11Texture2D> texture,staging;ComPtr<ID3D11RenderTargetView> target;
     winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface surface{nullptr};
     std::atomic<bool> stopped{true};std::thread control,transport;HANDLE pipe=INVALID_HANDLE_VALUE;
+    std::atomic<uint64_t> generation{0};
     std::mutex lock;kagami::smart::Packet packet;std::vector<BYTE> latest;
     IFrameworkView CreateView(){return *this;}
     void Initialize(CoreApplicationView const& value) {
@@ -53,12 +54,12 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
         wcsncpy_s(packet.detail,detail.c_str(),_TRUNCATE);latest.clear();
     }
     void requestExit() noexcept {
-        stopped=true;
+        stopped=true;++generation;
         {std::lock_guard guard(lock);latest.clear();packet={};}
         try {window.Dispatcher().RunAsync(CoreDispatcherPriority::Normal,[]{CoreApplication::Exit();});}catch(...){}
     }
     void finish() noexcept {
-        stopped=true;
+        stopped=true;++generation;
         try {if(session)session.Close();}catch(...){}session=nullptr;
         try {if(player)player.Close();}catch(...){}player=nullptr;
         if(control.joinable())control.join();if(transport.joinable())transport.join();
@@ -67,6 +68,12 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
     }
     fire_and_forget begin(hstring arguments) {
         auto lifetime=get_strong();
+        // A second activation can arrive after EOF set stopped but before the
+        // queued exit has joined the old threads. Never replace joinable threads
+        // or an existing pipe while that one-shot session is shutting down.
+        if(control.joinable()||transport.joinable()||pipe!=INVALID_HANDLE_VALUE){requestExit();co_return;}
+        const auto epoch=++generation;
+        auto cancelled=[this,epoch]{return stopped||generation!=epoch;};
         std::wistringstream input(arguments.c_str());std::wstring endpoint,extra;DWORD parent{};input>>endpoint>>parent;
         if(!parent||!kagami::smart::validEndpoint(endpoint)||(input>>extra)){requestExit();co_return;}
         try {
@@ -89,40 +96,40 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
                 }catch(...){requestExit();}
             });
             MiracastReceiver receiver;
-            auto status=co_await receiver.GetStatusAsync();if(stopped)co_return;
+            auto status=co_await receiver.GetStatusAsync();if(cancelled())co_return;
             if(status.WiFiStatus()==MiracastReceiverWiFiStatus::MiracastNotSupported)throw hresult_error(E_NOTIMPL,L"This Wi-Fi adapter does not support Miracast reception.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::DisabledByPolicy)throw hresult_error(E_ACCESSDENIED,L"Smart View reception is disabled by Windows administrative policy.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::TemporarilyDisabled)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY),L"Smart View is temporarily unavailable while other Wi-Fi activity is in progress.");
-            auto settings=co_await receiver.GetCurrentSettingsAsync();if(stopped)co_return;
+            auto settings=co_await receiver.GetCurrentSettingsAsync();if(cancelled())co_return;
             notify(kagami::smart::State::Listening,L"Starting Windows Smart View receiver...");
-            auto newSession=co_await receiver.CreateSessionAsync(view);if(stopped){newSession.Close();co_return;}session=newSession;
+            auto newSession=co_await receiver.CreateSessionAsync(view);if(cancelled()){newSession.Close();co_return;}session=newSession;
             session.MaxSimultaneousConnections(1);session.AllowConnectionTakeover(false);
             auto weak=get_weak();
-            session.ConnectionCreated([weak](auto const&,MiracastReceiverConnectionCreatedEventArgs const& args){
+            session.ConnectionCreated([weak,epoch](auto const&,MiracastReceiverConnectionCreatedEventArgs const& args){
                 if(auto self=weak.get()) {
-                    if(self->stopped){args.Connection().Disconnect(MiracastReceiverDisconnectReason::ConnectionNotAccepted);return;}
+                    if(self->stopped||self->generation!=epoch){args.Connection().Disconnect(MiracastReceiverDisconnectReason::ConnectionNotAccepted);return;}
                     if(!args.Pin().empty())self->notify(kagami::smart::State::Pin,L"Enter Smart View PIN: "+std::wstring(args.Pin()));
                 }
             });
-            session.Disconnected([weak](auto const&,auto const&){if(auto self=weak.get()){self->notify(kagami::smart::State::Failed,L"Smart View disconnected. Restart reception explicitly.",E_ABORT);}});
-            session.MediaSourceCreated([weak](auto const&,MiracastReceiverMediaSourceCreatedEventArgs const& args){
+            session.Disconnected([weak,epoch](auto const&,auto const&){if(auto self=weak.get())if(!self->stopped&&self->generation==epoch){self->notify(kagami::smart::State::Failed,L"Smart View disconnected. Restart reception explicitly.",E_ABORT);}});
+            session.MediaSourceCreated([weak,epoch](auto const&,MiracastReceiverMediaSourceCreatedEventArgs const& args){
                 if(auto self=weak.get()) {
-                    if(self->stopped)return;
+                    if(self->stopped||self->generation!=epoch)return;
                     // Session callbacks are agile and may run on a worker. Keep
                     // player creation/disposal on the CoreWindow thread, retaining
                     // the source until the asynchronous event deferral completes.
                     auto deferral=args.GetDeferral();auto source=args.MediaSource();
-                    try {self->window.Dispatcher().RunAsync(CoreDispatcherPriority::Normal,[weak,source,deferral]{
-                        if(auto current=weak.get())if(!current->stopped) {
+                    try {self->window.Dispatcher().RunAsync(CoreDispatcherPriority::Normal,[weak,source,deferral,epoch]{
+                        if(auto current=weak.get())if(!current->stopped&&current->generation==epoch) {
                             try{current->play(source);}catch(hresult_error const& e){current->notify(kagami::smart::State::Failed,e.message().c_str(),e.code());}catch(...){current->notify(kagami::smart::State::Failed,L"Cannot decode Smart View media.",E_FAIL);}
                         }
                         deferral.Complete();
                     });}catch(...){deferral.Complete();self->notify(kagami::smart::State::Failed,L"Cannot dispatch Smart View media.",E_FAIL);}
                 }
             });
-            auto result=co_await session.StartAsync();if(stopped)co_return;
+            auto result=co_await session.StartAsync();if(cancelled())co_return;
             if(unsigned(result.Status())!=0)throw hresult_error(E_FAIL,L"Windows could not start Smart View. Check Wireless Display and Wi-Fi Direct support.");
-            status=co_await receiver.GetStatusAsync();if(stopped)co_return;
+            status=co_await receiver.GetStatusAsync();if(cancelled())co_return;
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::DisabledByPolicy)throw hresult_error(E_ACCESSDENIED,L"Smart View reception is disabled by Windows administrative policy.");
             if(status.ListeningStatus()==MiracastReceiverListeningStatus::TemporarilyDisabled)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY),L"Smart View is temporarily unavailable while other Wi-Fi activity is in progress.");
             std::lock_guard guard(lock);
@@ -130,8 +137,18 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
                 auto detail=status.ListeningStatus()==MiracastReceiverListeningStatus::NotListening?L"Windows receiver started; waiting for listening status.":L"Smart View: select "+std::wstring(settings.FriendlyName());
                 wcsncpy_s(packet.detail,detail.c_str(),_TRUNCATE);
             }
-        }catch(hresult_error const& e){notify(kagami::smart::State::Failed,e.message().empty()?L"Smart View failed. Check Wireless Display and Windows permissions.":e.message().c_str(),e.code());}
-        catch(...){notify(kagami::smart::State::Failed,L"Smart View receiver failed.",E_FAIL);}
+        }catch(hresult_error const& e){
+            if(generation!=epoch)co_return;
+            // Before authenticated transport exists there is no parent to notify.
+            // Close the companion rather than leave a stopped blank window open.
+            if(stopped||!control.joinable()||!transport.joinable())requestExit();
+            else notify(kagami::smart::State::Failed,e.message().empty()?L"Smart View failed. Check Wireless Display and Windows permissions.":e.message().c_str(),e.code());
+        }
+        catch(...){
+            if(generation!=epoch)co_return;
+            if(stopped||!control.joinable()||!transport.joinable())requestExit();
+            else notify(kagami::smart::State::Failed,L"Smart View receiver failed.",E_FAIL);
+        }
     }
     void play(winrt::Windows::Media::Core::MediaSource const& source) {
         // Only one connection may produce one player. A duplicate source event
@@ -144,15 +161,15 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
         ComPtr<IDXGISurface> dxgi;check_hresult(texture.As(&dxgi));com_ptr<IInspectable> inspectable;
         check_hresult(CreateDirect3D11SurfaceFromDXGISurface(dxgi.Get(),inspectable.put()));surface=inspectable.as<winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DSurface>();
         player=MediaPlayer();player.CommandManager().IsEnabled(false);player.IsVideoFrameServerEnabled(true);
-        auto weak=get_weak();
-        player.VideoFrameAvailable([weak](MediaPlayer const& sender,auto const&){if(auto self=weak.get())self->frame(sender);});
-        player.MediaFailed([weak](auto const&,auto const&){if(auto self=weak.get())self->notify(kagami::smart::State::Failed,L"Smart View decoder or audio output failed.",E_FAIL);});
-        player.MediaEnded([weak](auto const&,auto const&){if(auto self=weak.get())self->notify(kagami::smart::State::Failed,L"Smart View stream ended.",E_ABORT);});
+        auto weak=get_weak();auto epoch=generation.load();
+        player.VideoFrameAvailable([weak,epoch](MediaPlayer const& sender,auto const&){if(auto self=weak.get())self->frame(sender,epoch);});
+        player.MediaFailed([weak,epoch](auto const&,auto const&){if(auto self=weak.get())if(!self->stopped&&self->generation==epoch)self->notify(kagami::smart::State::Failed,L"Smart View decoder or audio output failed.",E_FAIL);});
+        player.MediaEnded([weak,epoch](auto const&,auto const&){if(auto self=weak.get())if(!self->stopped&&self->generation==epoch)self->notify(kagami::smart::State::Failed,L"Smart View stream ended.",E_ABORT);});
         player.Source(source);player.Play();
     }
-    void frame(MediaPlayer const& sender) noexcept {
+    void frame(MediaPlayer const& sender,uint64_t epoch) noexcept {
         try {
-            std::unique_lock guard(lock,std::try_to_lock);if(!guard.owns_lock()||stopped||packet.state==kagami::smart::State::Failed)return;
+            std::unique_lock guard(lock,std::try_to_lock);if(!guard.owns_lock()||stopped||generation!=epoch||packet.state==kagami::smart::State::Failed)return;
             auto playback=sender.PlaybackSession();double width=playback.NaturalVideoWidth(),height=playback.NaturalVideoHeight();if(width<1||height<1)return;
             double factor=(std::min)(kagami::width/width,kagami::height/height);
             const float black[4]{};context->ClearRenderTargetView(target.Get(),black);
@@ -161,7 +178,7 @@ struct ReceiverApp : implements<ReceiverApp,IFrameworkViewSource,IFrameworkView>
             check_hresult(context->Map(staging.Get(),0,D3D11_MAP_READ,0,&mapped));
             for(unsigned y=0;y<kagami::height;++y)memcpy(pixels.data()+size_t(y)*kagami::width*4,static_cast<BYTE*>(mapped.pData)+size_t(y)*mapped.RowPitch,kagami::width*4);
             context->Unmap(staging.Get(),0);latest=std::move(pixels);packet.state=kagami::smart::State::Video;wcscpy_s(packet.detail,L"Smart View receiving · audio uses Windows desktop output.");
-        }catch(...){notify(kagami::smart::State::Failed,L"Smart View frame processing failed.",E_FAIL);}
+        }catch(...){if(!stopped&&generation==epoch)notify(kagami::smart::State::Failed,L"Smart View frame processing failed.",E_FAIL);}
     }
 };
 int WINAPI wWinMain(HINSTANCE,HINSTANCE,PWSTR,int) {

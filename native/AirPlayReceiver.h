@@ -19,7 +19,7 @@ public:
         std::wstring path=directory+L"\\kagami-uxplay.exe";
         if(GetFileAttributesW(path.c_str())==INVALID_FILE_ATTRIBUTES)throw winrt::hresult_error(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND),L"Install the Kagami development setup with its AirPlay backend.");
         std::wstring command=L"\""+path+L"\" -rc NUL -n Kagami -nh -s 1280x720@30 -p 35000 -vs \"d3d11videosink sync=false\" -as \"wasapisink sync=true\"";
-        child.start(path,command,directory);started=GetTickCount64();
+        child.start(path,command,directory,true);started=GetTickCount64();
     }
     std::vector<BYTE> take() {
         if(!active())return {};

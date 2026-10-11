@@ -35,12 +35,14 @@ Root: HKLM; Subkey: "Software\Classes\CLSID\{{542A79E7-54AC-48F9-B948-4620292BCC
 
 [Tasks]
 Name: "obs"; Description: "Install OBS Studio via winget for camera testing (optional)"; Flags: unchecked
+Name: "android"; Description: "Install scrcpy / ADB via winget for Android reception (requires scrcpy 4.0+)"; Flags: unchecked
 Name: "smartview"; Description: "Install Smart View companion and trust this build's development signing certificate (optional)"; Flags: unchecked
 
 [Icons]
 Name: "{group}\Kagami"; Filename: "{app}\Kagami.exe"
 
 [Run]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-OptionalDependencies.ps1"" -Dependency Android"; Tasks: android; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing optional Android dependencies through winget..."
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\smartview\Install-SmartView.ps1"" -TrustDevelopmentCertificate"; Tasks: smartview; Flags: runhidden waituntilterminated; StatusMsg: "Trusting the selected development signing certificate..."
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\smartview\Install-SmartView.ps1"""; Tasks: smartview; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing Smart View for the desktop user..."
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-OptionalDependencies.ps1"""; Tasks: obs; Flags: runasoriginaluser waituntilterminated; StatusMsg: "Installing optional OBS Studio through winget..."
