@@ -134,7 +134,7 @@ inline void drawButton(DRAWITEMSTRUCT* item){
         wchar_t label[128];GetWindowTextW(item->hwndItem,label,128);Font font(L"Segoe UI",13,FontStyleRegular,UnitPixel);SolidBrush brush(ink);
         g.DrawString(label,-1,&font,RectF(10,0,width-58,height),nullptr,&brush);
         rounded(g,RectF(width-48,(height-24)/2,42,24),enabled?Color(255,162,81,250):Color(255,81,77,96));
-        SolidBrush thumb(ink);g.FillEllipse(&thumb,width-(enabled?43.f:65.f),(height-18)/2,18,18);
+        SolidBrush thumb(ink);g.FillEllipse(&thumb,width-(enabled?26.f:45.f),(height-18.f)/2,18.f,18.f);
     }else{
         Color color=disabled?Color(255,42,39,51):pressed?Color(255,113,55,160):item->CtlID==111?Color(255,168,75,237):Color(255,57,52,69);rounded(g,RectF(1,1,width-2,height-2),color);wchar_t label[128];GetWindowTextW(item->hwndItem,label,128);Font font(L"Segoe UI",14*scale,FontStyleRegular,UnitPixel);SolidBrush brush(disabled?Color(255,130,121,145):ink);StringFormat f;f.SetAlignment(StringAlignmentCenter);f.SetLineAlignment(StringAlignmentCenter);g.DrawString(label,-1,&font,RectF(0,0,width,height),&f,&brush);
     }
