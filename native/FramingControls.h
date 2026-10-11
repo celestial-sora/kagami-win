@@ -1,4 +1,7 @@
 #pragma once
+#include "FrameBridge.h"
+#include "DesktopUI.h"
+#include <cwchar>
 #include "Framing.h"
 #include "DialogStyle.h"
 #include "PresetIdentity.h"

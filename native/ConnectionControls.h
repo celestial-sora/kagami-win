@@ -2,6 +2,8 @@
 #include "AdbCommand.h"
 #include "DialogStyle.h"
 #include <memory>
+#include <thread>
+#include <mutex>
 namespace connectionControls {
 inline HWND window{},serial{},endpoint{},code{},result{},startButton{},commands[3]{};
 inline HFONT font{};inline HWND host{};inline std::wstring selected;

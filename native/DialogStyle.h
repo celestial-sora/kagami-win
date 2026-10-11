@@ -1,4 +1,6 @@
 #pragma once
+#include <windows.h>
+#include <cwchar>
 // Standard native control rendering, with the same dark palette as the desktop.
 namespace dialogStyle {
 inline HBRUSH background(){static HBRUSH brush=CreateSolidBrush(RGB(29,27,39));return brush;}
